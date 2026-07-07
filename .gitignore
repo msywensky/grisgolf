@@ -1,0 +1,16 @@
+# deps / builds
+node_modules/
+frontend/.svelte-kit/
+frontend/build/
+frontend/.vercel/
+backend/.venv/
+__pycache__/
+*.pyc
+
+# secrets
+.env
+.env.*
+!.env.example
+
+# misc
+.DS_Store
