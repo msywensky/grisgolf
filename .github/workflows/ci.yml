@@ -54,3 +54,32 @@ jobs:
       # Build the actual Cloud Run image to catch Dockerfile/dependency drift.
       - name: Docker build
         run: docker build -t hmb-api-ci .
+
+  deploy:
+    name: Deploy to Cloud Run
+    needs: [frontend-build, backend-build]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          project_id: scramble-hmbgolf
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      # Env vars and secrets already live on the Cloud Run service from the
+      # initial manual deploy (see README) — this only ships the new image.
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy hmb-scramble-api \
+            --source backend \
+            --region us-central1 \
+            --quiet
