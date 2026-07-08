@@ -65,19 +65,39 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Skip the actual deploy steps below when this push to main didn't
+      # touch backend/ — no point rebuilding and redeploying the image for
+      # a frontend-only change. Treat "can't diff" (force-push, new branch,
+      # shallow history) as changed so we never silently skip a real deploy.
+      - name: Check for backend changes
+        id: changed
+        run: |
+          BEFORE="${{ github.event.before }}"
+          if git cat-file -e "$BEFORE" 2>/dev/null && \
+             git diff --quiet "$BEFORE" "${{ github.sha }}" -- backend/; then
+            echo "backend=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "backend=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - id: auth
+        if: steps.changed.outputs.backend == 'true'
         uses: google-github-actions/auth@v2
         with:
           project_id: scramble-hmbgolf
           workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ vars.GCP_DEPLOY_SA }}
 
-      - uses: google-github-actions/setup-gcloud@v2
+      - if: steps.changed.outputs.backend == 'true'
+        uses: google-github-actions/setup-gcloud@v2
 
       # Env vars and secrets already live on the Cloud Run service from the
       # initial manual deploy (see README) — this only ships the new image.
       - name: Deploy to Cloud Run
+        if: steps.changed.outputs.backend == 'true'
         run: |
           gcloud run deploy hmb-scramble-api \
             --source backend \

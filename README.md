@@ -181,8 +181,10 @@ variables are fine, not secrets:
 | `GCP_DEPLOY_SA` | `github-actions-deployer@YOUR_PROJECT_ID.iam.gserviceaccount.com` |
 
 The `deploy` job only runs on a push to `main` (i.e. after a PR merges), and only
-after both build jobs succeed. It doesn't pass `--set-env-vars`/`--set-secrets` —
-those already live on the Cloud Run service from the initial manual deploy above,
+after both build jobs succeed. It also skips the actual `gcloud run deploy` steps
+unless that push touched `backend/` — a frontend-only merge won't trigger a
+Cloud Run redeploy. It doesn't pass `--set-env-vars`/`--set-secrets` — those
+already live on the Cloud Run service from the initial manual deploy above,
 and `gcloud run deploy` doesn't touch env vars/secrets it isn't told to change.
 
 Optional custom domain (e.g. `api.hmbgolf.com`), after verifying ownership in
