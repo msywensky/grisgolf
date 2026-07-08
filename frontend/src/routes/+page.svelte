@@ -97,7 +97,7 @@
 			</label>
 
 			<div class="flex gap-3">
-				<label class="block flex-1 text-sm font-medium text-stone-300">
+				<label class="block min-w-0 flex-1 text-sm font-medium text-stone-300">
 					Date
 					<input
 						type="date"

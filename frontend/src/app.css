@@ -4,6 +4,13 @@
  * HMB Scramble theme — fairway greens + beer ambers.
  * Tailwind v4 theme tokens; use like `bg-fairway-600` or `text-brew-400`.
  */
+
+/* wobble-in briefly scales/rotates full-width elements, which pushes their
+ * bounding box past the viewport edge on mobile — clip it site-wide. */
+html,
+body {
+	overflow-x: hidden;
+}
 @theme {
 	--color-fairway-50: #f0fdf4;
 	--color-fairway-100: #dcfce7;
