@@ -3,6 +3,9 @@
 	"private": true,
 	"version": "0.1.0",
 	"type": "module",
+	"engines": {
+		"node": "20.x"
+	},
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build",
@@ -13,7 +16,7 @@
 		"@supabase/supabase-js": "^2.49.4"
 	},
 	"devDependencies": {
-		"@sveltejs/adapter-auto": "^3.3.1",
+		"@sveltejs/adapter-vercel": "^6.3.4",
 		"@sveltejs/kit": "^2.20.7",
 		"@sveltejs/vite-plugin-svelte": "^5.0.3",
 		"@tailwindcss/vite": "^4.1.4",
