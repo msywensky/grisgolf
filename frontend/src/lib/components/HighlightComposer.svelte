@@ -2,6 +2,7 @@
 	// Bottom-sheet composer for "Epic Shot" moments: caption + optional photo,
 	// saved to Supabase, then an instant share card for the group chat.
 	import { randomHighlightPrompt } from '$lib/copy';
+	import { eventStore } from '$lib/eventStore.svelte';
 	import { renderShareCard, shareCard } from '$lib/sharecard';
 	import { supabase, uploadHighlightPhoto } from '$lib/supabase';
 	import type { EventBundle, Highlight } from '$lib/types';
@@ -53,6 +54,9 @@
 				.single();
 			if (error) throw error;
 			saved = data;
+			// Don't wait on realtime/polling — a photo upload backgrounds the tab
+			// (camera capture), which can stall both for a while. Refresh now.
+			eventStore.refresh();
 		} catch (err) {
 			errorMsg = err instanceof Error ? err.message : 'Highlight got lost in the rough.';
 		} finally {
