@@ -32,8 +32,18 @@ grisgolf/
 2. Open **SQL Editor** and run `supabase/schema.sql` (tables, RLS, realtime, storage bucket).
 3. Then run `supabase/seed.sql` — this creates the demo event at `/event/demo1234`
    (admin pin `1919`) so the app looks alive on first load.
-4. Grab from **Settings → API**: the project URL, the `anon` key, and the
-   `service_role` key.
+4. Grab your keys from **Settings → API**. Supabase renamed its API keys — you'll
+   see **Publishable key** and **Secret key** instead of the older `anon` /
+   `service_role` names, but they're the same two keys with the same jobs:
+
+   | Supabase dashboard label | Goes in | Env var |
+   |---|---|---|
+   | Project URL | both `.env` files | `SUPABASE_URL` / `PUBLIC_SUPABASE_URL` |
+   | **Publishable key** (`sb_publishable_...`) | `frontend/.env` only — safe for the browser, gated by RLS | `PUBLIC_SUPABASE_ANON_KEY` |
+   | **Secret key** (`sb_secret_...`) | `backend/.env` only — never ship this to the frontend | `SUPABASE_SERVICE_ROLE_KEY` |
+
+   Ignore **JWKS URL** — that's only needed for custom JWT verification, which
+   this app doesn't do.
 
 ### 2. Backend (FastAPI)
 
@@ -85,11 +95,66 @@ Things worth showing off:
 
 **Frontend → Vercel:** import the repo, set the root directory to `frontend/`,
 add the three `PUBLIC_*` env vars (point `PUBLIC_API_URL` at your deployed backend).
-`adapter-auto` handles the rest.
+`adapter-auto` handles the rest. To use a subdomain like `scramble.hmbgolf.com`,
+add it under Project Settings → Domains and create the CNAME record it gives you
+(`scramble` → `cname.vercel-dns.com`) at your DNS host.
 
-**Backend → Railway/Render:** root directory `backend/`, start command
+Backend can go to either Railway/Render or Google Cloud Run — pick one:
+
+### Option A: Railway/Render
+
+Root directory `backend/`, start command
 `uvicorn app.main:app --host 0.0.0.0 --port $PORT`, env vars from `.env.example`
-(set `CORS_ORIGINS` to your Vercel URL).
+(set `CORS_ORIGINS` to your frontend URL). Both platforms build straight from
+`requirements.txt`, no Dockerfile needed.
+
+### Option B: Google Cloud Run
+
+The repo includes `backend/Dockerfile`. One-time setup:
+
+```bash
+gcloud auth login
+gcloud config set project YOUR_PROJECT_ID
+gcloud services enable run.googleapis.com artifactregistry.googleapis.com \
+  cloudbuild.googleapis.com secretmanager.googleapis.com
+
+# Store the Supabase secret key in Secret Manager rather than a plain env var
+printf 'your-secret-key-value' | gcloud secrets create supabase-service-role-key --data-file=-
+```
+
+Build and deploy from the repo root:
+
+```bash
+gcloud run deploy hmb-scramble-api \
+  --source backend \
+  --region us-central1 \
+  --allow-unauthenticated \
+  --set-env-vars SUPABASE_URL=https://YOUR-PROJECT.supabase.co,CORS_ORIGINS=https://scramble.hmbgolf.com \
+  --set-secrets SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest
+```
+
+This gives you a `https://hmb-scramble-api-xxxxxxxxxx-uc.a.run.app` URL — test it
+with `curl <url>/` (expect `{"status":"ok","vibe":"🍺⛳ hold my beer"}`), then set
+that as `PUBLIC_API_URL` in Vercel and redeploy the frontend.
+
+To redeploy after code changes, re-run the same `gcloud run deploy` command — env
+vars and secrets persist. Cloud Run scales to zero by default (a cold start adds
+a second or two to the first request after idle time); add `--min-instances=1`
+if that's not acceptable for your group chat's patience.
+
+Optional custom domain (e.g. `api.hmbgolf.com`), after verifying ownership in
+[Search Console](https://search.google.com/search-console):
+
+```bash
+gcloud beta run domain-mappings create \
+  --service hmb-scramble-api --domain api.hmbgolf.com --region us-central1
+```
+
+### Either way
+
+Make sure `CORS_ORIGINS` on the backend exactly matches the frontend's origin
+(scheme + host, no trailing slash) — a mismatch fails silently as a CORS error
+in the browser console, not a helpful server error.
 
 ## MVP trust model (a.k.a. things we punted on purpose)
 
