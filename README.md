@@ -142,6 +142,51 @@ vars and secrets persist. Cloud Run scales to zero by default (a cold start adds
 a second or two to the first request after idle time); add `--min-instances=1`
 if that's not acceptable for your group chat's patience.
 
+**Auto-deploy on merge to `main`:** the `deploy` job in `.github/workflows/ci.yml`
+runs `gcloud run deploy` after the build checks pass, authenticating via Workload
+Identity Federation (no long-lived key stored in GitHub). One-time GCP setup:
+
+```bash
+# Deploy service account, scoped to just what `gcloud run deploy --source` needs
+gcloud iam service-accounts create github-actions-deployer \
+  --display-name="GitHub Actions Cloud Run deployer"
+
+SA="github-actions-deployer@YOUR_PROJECT_ID.iam.gserviceaccount.com"
+for ROLE in roles/run.admin roles/iam.serviceAccountUser \
+            roles/cloudbuild.builds.editor roles/artifactregistry.writer roles/storage.admin; do
+  gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
+    --member="serviceAccount:${SA}" --role="${ROLE}"
+done
+
+# Workload Identity Federation: lets GitHub's OIDC token impersonate the SA above
+gcloud iam workload-identity-pools create "github-pool" --location="global"
+gcloud iam workload-identity-pools providers create-oidc "github-provider" \
+  --location="global" --workload-identity-pool="github-pool" \
+  --issuer-uri="https://token.actions.githubusercontent.com" \
+  --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository" \
+  --attribute-condition="assertion.repository=='YOUR_GH_ORG/YOUR_REPO'"
+
+gcloud iam service-accounts add-iam-policy-binding "${SA}" \
+  --role="roles/iam.workloadIdentityUser" \
+  --member="principalSet://iam.googleapis.com/projects/YOUR_PROJECT_NUMBER/locations/global/workloadIdentityPools/github-pool/attribute.repository/YOUR_GH_ORG/YOUR_REPO"
+```
+
+Then set two GitHub Actions repo variables (`gh variable set`, or Settings →
+Secrets and variables → Actions → Variables) — neither is sensitive, so plain
+variables are fine, not secrets:
+
+| Variable | Value |
+|---|---|
+| `GCP_WORKLOAD_IDENTITY_PROVIDER` | `projects/YOUR_PROJECT_NUMBER/locations/global/workloadIdentityPools/github-pool/providers/github-provider` |
+| `GCP_DEPLOY_SA` | `github-actions-deployer@YOUR_PROJECT_ID.iam.gserviceaccount.com` |
+
+The `deploy` job only runs on a push to `main` (i.e. after a PR merges), and only
+after both build jobs succeed. It also skips the actual `gcloud run deploy` steps
+unless that push touched `backend/` — a frontend-only merge won't trigger a
+Cloud Run redeploy. It doesn't pass `--set-env-vars`/`--set-secrets` — those
+already live on the Cloud Run service from the initial manual deploy above,
+and `gcloud run deploy` doesn't touch env vars/secrets it isn't told to change.
+
 Optional custom domain (e.g. `api.hmbgolf.com`), after verifying ownership in
 [Search Console](https://search.google.com/search-console):
 
