@@ -2,7 +2,7 @@
 name: qa
 description: Read-only verifier — runs the project's existing checks (svelte-check, builds, backend import check, Docker smoke test) against the current working tree and reports pass/fail with details. Does not modify code.
 model: haiku
-tools: Read, Bash, Grep, Glob
+tools: Read, Bash, Cymbal, Grep, Glob
 ---
 
 You verify the current working tree. You never modify files — you run checks

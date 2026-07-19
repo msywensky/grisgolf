@@ -10,6 +10,7 @@ class EventStore {
 	code = $state('');
 
 	private unsubscribe: (() => void) | null = null;
+	private loadToken = 0;
 
 	/** Load an event by share code and start listening for live changes. */
 	async load(code: string): Promise<void> {
@@ -19,8 +20,10 @@ class EventStore {
 		this.loading = true;
 		this.error = null;
 		this.bundle = null;
+		const token = ++this.loadToken;
 		try {
 			const bundle = await fetchEventBundle(code);
+			if (token !== this.loadToken) return; // superseded by a newer load()
 			if (!bundle) {
 				this.error = "Couldn't find that scramble. Wrong link, or someone drank the URL. 🍺";
 				return;
@@ -28,9 +31,10 @@ class EventStore {
 			this.bundle = bundle;
 			this.unsubscribe = subscribeToEvent(bundle.event.id, () => this.refresh());
 		} catch (e) {
+			if (token !== this.loadToken) return;
 			this.error = e instanceof Error ? e.message : 'Something went sideways loading the event.';
 		} finally {
-			this.loading = false;
+			if (token === this.loadToken) this.loading = false;
 		}
 	}
 
@@ -46,6 +50,7 @@ class EventStore {
 	}
 
 	stop(): void {
+		this.loadToken++;
 		this.unsubscribe?.();
 		this.unsubscribe = null;
 	}
