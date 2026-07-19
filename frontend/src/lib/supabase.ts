@@ -56,8 +56,15 @@ export async function fetchEventBundle(shareCode: string): Promise<EventBundle |
  */
 export function subscribeToEvent(eventId: string, onChange: () => void): () => void {
 	const sb = supabase();
+	const topic = `event-${eventId}`;
+	// supabase-js reuses an existing channel object for a topic that hasn't
+	// been removed yet, and calling .on() on an already-subscribed channel
+	// throws. Clear out any stale channel for this topic first.
+	const stale = sb.getChannels().filter((c) => c.topic === `realtime:${topic}`);
+	for (const c of stale) sb.removeChannel(c);
+
 	const channel = sb
-		.channel(`event-${eventId}`)
+		.channel(topic)
 		.on(
 			'postgres_changes',
 			{ event: '*', schema: 'public', filter: `event_id=eq.${eventId}`, table: 'scores' },
