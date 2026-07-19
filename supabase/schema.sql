@@ -50,11 +50,20 @@ create table if not exists scores (
   team_id uuid not null references teams(id) on delete cascade,
   hole_number int not null check (hole_number between 1 and 18),
   score int not null check (score between 1 and 10),
+  -- scramble shot attribution: how many of the team's strokes came from each
+  -- player's ball (slots match teams.player1_id / teams.player2_id). Optional.
+  player1_shots int check (player1_shots between 0 and 10),
+  player2_shots int check (player2_shots between 0 and 10),
   notes text,
   created_at timestamptz not null default now(),
   -- one score per team per hole; scoring UI upserts against this
   unique (event_id, team_id, hole_number)
 );
+
+-- Existing databases: the create above is `if not exists`, so bring old
+-- scores tables up to date too (no-ops once applied).
+alter table scores add column if not exists player1_shots int check (player1_shots between 0 and 10);
+alter table scores add column if not exists player2_shots int check (player2_shots between 0 and 10);
 
 create table if not exists highlights (
   id uuid primary key default gen_random_uuid(),

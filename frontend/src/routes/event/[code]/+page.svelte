@@ -3,6 +3,7 @@
 	import Leaderboard from '$lib/components/Leaderboard.svelte';
 	import { eventStore } from '$lib/eventStore.svelte';
 	import { getMyGolferId } from '$lib/session';
+	import type { Score, Team } from '$lib/types';
 
 	const code = $derived(page.params.code ?? '');
 	const bundle = $derived(eventStore.bundle);
@@ -15,14 +16,29 @@
 		}
 	});
 
-	// Scorecard grid: hole -> team_id -> score/notes
+	// Scorecard grid: hole -> team_id -> score row
 	const scoreFor = $derived.by(() => {
-		const map = new Map<string, { score: number; notes: string | null }>();
+		const map = new Map<string, Score>();
 		for (const s of bundle?.scores ?? []) {
-			map.set(`${s.hole_number}:${s.team_id}`, { score: s.score, notes: s.notes });
+			map.set(`${s.hole_number}:${s.team_id}`, s);
 		}
 		return map;
 	});
+
+	const golferName = $derived(new Map((bundle?.golfers ?? []).map((g) => [g.id, g.name])));
+
+	/** Tooltip: note plus the whose-shots split when it was recorded. */
+	function cellTitle(cell: Score, team: Team): string {
+		const parts: string[] = [];
+		if (cell.notes) parts.push(cell.notes);
+		if (cell.player1_shots !== null || cell.player2_shots !== null) {
+			const name = (id: string | null) => (id && golferName.get(id)?.split(' ')[0]) || '?';
+			parts.push(
+				`${name(team.player1_id)} ${cell.player1_shots ?? 0} · ${name(team.player2_id)} ${cell.player2_shots ?? 0}`
+			);
+		}
+		return parts.join(' — ');
+	}
 
 	const holeNumbers = $derived(
 		bundle ? Array.from({ length: bundle.event.holes }, (_, i) => i + 1) : []
@@ -71,9 +87,9 @@
 												: cell.score >= 6
 													? 'bg-red-900/60 text-red-200'
 													: 'text-stone-200'}"
-											title={cell.notes ?? ''}
+											title={cellTitle(cell, team)}
 										>
-											{cell.score}{cell.notes ? '*' : ''}
+											{cell.score}{cellTitle(cell, team) ? '*' : ''}
 										</span>
 									{:else}
 										<span class="text-stone-600">·</span>
@@ -85,7 +101,9 @@
 				</tbody>
 			</table>
 		</div>
-		<p class="mt-2 text-right text-[11px] text-stone-500">* has a note — tap/hover to read the lore</p>
+		<p class="mt-2 text-right text-[11px] text-stone-500">
+			* has a note or shot split — tap/hover to read the lore
+		</p>
 	{/if}
 
 	{#if bundle.highlights.length > 0}
