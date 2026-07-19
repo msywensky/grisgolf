@@ -30,11 +30,14 @@ export async function fetchEventBundle(shareCode: string): Promise<EventBundle |
 	if (error) throw error;
 	if (!event) return null;
 
-	const [golfers, teams, scores, highlights] = await Promise.all([
+	const [golfers, teams, scores, highlights, course] = await Promise.all([
 		sb.from('golfers').select('*').eq('event_id', event.id).order('name'),
 		sb.from('teams').select('*').eq('event_id', event.id).order('created_at'),
 		sb.from('scores').select('*').eq('event_id', event.id).order('hole_number'),
-		sb.from('highlights').select('*').eq('event_id', event.id).order('created_at', { ascending: false })
+		sb.from('highlights').select('*').eq('event_id', event.id).order('created_at', { ascending: false }),
+		event.course_id
+			? sb.from('courses').select('*').eq('id', event.course_id).maybeSingle()
+			: Promise.resolve(null)
 	]);
 	for (const res of [golfers, teams, scores, highlights]) {
 		if (res.error) throw res.error;
@@ -42,6 +45,7 @@ export async function fetchEventBundle(shareCode: string): Promise<EventBundle |
 
 	return {
 		event,
+		course: course?.data ?? null,
 		golfers: golfers.data ?? [],
 		teams: teams.data ?? [],
 		scores: scores.data ?? [],

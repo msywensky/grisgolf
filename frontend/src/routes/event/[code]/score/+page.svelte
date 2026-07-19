@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import HighlightComposer from '$lib/components/HighlightComposer.svelte';
 	import { NOTE_CHIPS } from '$lib/copy';
+	import { holePars } from '$lib/courses';
 	import { eventStore } from '$lib/eventStore.svelte';
 	import { buildLeaderboard, scoreReaction } from '$lib/scoring';
 	import { getMyTeamId, setMyTeamId } from '$lib/session';
@@ -40,6 +41,10 @@
 	);
 	const player2 = $derived(
 		bundle?.golfers.find((g) => g.id === myTeam?.player2_id) ?? null
+	);
+	// Real per-hole pars when the event has a linked course + tee (else null).
+	const pars = $derived(
+		bundle ? holePars(bundle.course, bundle.event.tee_name, bundle.event.tee_gender, bundle.event.holes) : null
 	);
 	const myRow = $derived.by(() => {
 		if (!bundle || !teamId) return null;
@@ -102,7 +107,7 @@
 					{ onConflict: 'event_id,team_id,hole_number' }
 				);
 			if (error) throw error;
-			toast = scoreReaction(value);
+			toast = scoreReaction(value, pars?.[hole - 1] ?? 4);
 			setTimeout(() => (toast = null), 2500);
 			await eventStore.refresh();
 			// Auto-advance so the flow is tap-score → walk to next tee.
@@ -204,6 +209,9 @@
 				<div class="text-center">
 					<p class="text-xs font-bold tracking-widest text-stone-400 uppercase">{myTeam.name}</p>
 					<p class="font-display text-4xl font-black text-white">Hole {hole}</p>
+					{#if pars}
+						<p class="text-xs font-bold text-stone-400">Par {pars[hole - 1]}</p>
+					{/if}
 					{#if currentEntry}
 						<p class="text-brew-300 text-xs font-bold">saved: {currentEntry.score}</p>
 					{/if}

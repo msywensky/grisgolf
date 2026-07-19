@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from ..db import get_db
 from ..ics import build_ics
+from .courses import display_name, ensure_cached
 
 router = APIRouter(prefix="/api/events", tags=["events"])
 
@@ -64,6 +65,10 @@ class CreateEvent(BaseModel):
     holes: Literal[9, 18] = 18
     created_by: str = Field(min_length=1, max_length=60)
     admin_pin: Optional[str] = Field(default=None, min_length=4, max_length=4)
+    # Link a real course (GolfCourseAPI id) + the tee the crew plays.
+    external_course_id: Optional[int] = None
+    tee_name: Optional[str] = Field(default=None, max_length=60)
+    tee_gender: Optional[Literal["male", "female"]] = None
 
 
 @router.post("")
@@ -72,22 +77,23 @@ def create_event(body: CreateEvent) -> dict:
     share_code = _new_share_code()
     pin = body.admin_pin or _new_pin()
 
-    event = (
-        db.table("events")
-        .insert(
-            {
-                "title": body.title,
-                "course": body.course,
-                "date": body.date.isoformat(),
-                "holes": body.holes,
-                "status": "upcoming",
-                "created_by": body.created_by,
-                "share_code": share_code,
-            }
-        )
-        .execute()
-        .data[0]
-    )
+    insert = {
+        "title": body.title,
+        "course": body.course,
+        "date": body.date.isoformat(),
+        "holes": body.holes,
+        "status": "upcoming",
+        "created_by": body.created_by,
+        "share_code": share_code,
+    }
+    if body.external_course_id is not None:
+        course_row = ensure_cached(body.external_course_id)
+        insert["course_id"] = course_row["id"]
+        insert["course"] = display_name(course_row) or body.course
+        insert["tee_name"] = body.tee_name
+        insert["tee_gender"] = body.tee_gender
+
+    event = db.table("events").insert(insert).execute().data[0]
     db.table("event_admins").insert({"event_id": event["id"], "pin": pin}).execute()
 
     return {"share_code": share_code, "admin_pin": pin}
@@ -111,6 +117,15 @@ class UpdateEvent(BaseModel):
     course: Optional[str] = None
     date: Optional[date] = None
     status: Optional[Literal["upcoming", "live", "final"]] = None
+    # Course linking. The None-dropping patch below can't express "clear the
+    # link", so unlinking is an explicit flag.
+    external_course_id: Optional[int] = None
+    tee_name: Optional[str] = Field(default=None, max_length=60)
+    tee_gender: Optional[Literal["male", "female"]] = None
+    unlink_course: bool = False
+
+
+SIMPLE_PATCH_FIELDS = ("title", "course", "date", "status")
 
 
 @router.patch("/{share_code}")
@@ -120,7 +135,24 @@ def update_event(
     x_admin_pin: Optional[str] = Header(default=None),
 ) -> dict:
     event = _require_admin(share_code, x_admin_pin)
-    patch = {k: (v.isoformat() if isinstance(v, date) else v) for k, v in body.model_dump().items() if v is not None}
+    dumped = body.model_dump()
+    patch = {
+        k: (v.isoformat() if isinstance(v, date) else v)
+        for k, v in dumped.items()
+        if k in SIMPLE_PATCH_FIELDS and v is not None
+    }
+    if body.unlink_course:
+        patch.update({"course_id": None, "tee_name": None, "tee_gender": None})
+    elif body.external_course_id is not None:
+        course_row = ensure_cached(body.external_course_id)
+        patch["course_id"] = course_row["id"]
+        patch["course"] = display_name(course_row) or event["course"]
+        patch["tee_name"] = body.tee_name
+        patch["tee_gender"] = body.tee_gender
+    elif body.tee_name is not None or body.tee_gender is not None:
+        # Tee change on the already-linked course.
+        patch["tee_name"] = body.tee_name
+        patch["tee_gender"] = body.tee_gender
     if patch:
         get_db().table("events").update(patch).eq("id", event["id"]).execute()
     return {"ok": True}
@@ -147,6 +179,9 @@ def clone_event(
             {
                 "title": event["title"],
                 "course": event["course"],
+                "course_id": event.get("course_id"),
+                "tee_name": event.get("tee_name"),
+                "tee_gender": event.get("tee_gender"),
                 "date": next_date,
                 "holes": event["holes"],
                 "status": "upcoming",
@@ -196,9 +231,25 @@ def clone_event(
 def event_ics(share_code: str) -> Response:
     """Weekly-recurring calendar file for the scramble series."""
     event = _get_event(share_code)
+    location = event["course"]
+    if event.get("course_id"):
+        res = (
+            get_db()
+            .table("courses")
+            .select("address, city, state")
+            .eq("id", event["course_id"])
+            .maybe_single()
+            .execute()
+        )
+        row = res.data if res else None
+        if row:
+            # The API's address already includes city/state; fall back to them.
+            where = row.get("address") or ", ".join(p for p in (row.get("city"), row.get("state")) if p)
+            if where:
+                location = f'{event["course"]}, {where}'
     ics = build_ics(
         title=event["title"],
-        course=event["course"],
+        course=location,
         start=date.fromisoformat(event["date"]),
         share_code=share_code,
     )

@@ -114,12 +114,13 @@ export function buildLeaderboard(
 	return rows;
 }
 
-/** Par-ish label for a score relative to a par-4 assumption, purely for fun copy. */
-export function scoreReaction(score: number): string {
-	if (score <= 2) return 'EAGLE?! Someone check that scorecard 🦅';
-	if (score === 3) return 'Birdie juice! First round is on you 🍹';
-	if (score === 4) return 'Par. Respectable. Hydrate accordingly 🍺';
-	if (score === 5) return 'Bogey. The beer cart heard that one 😅';
-	if (score === 6) return 'Double. Shake it off, champ 🫡';
+/** Fun copy for a score vs par. Defaults to par 4 when the hole's real par is unknown. */
+export function scoreReaction(score: number, par = 4): string {
+	const diff = score - par;
+	if (diff <= -2) return 'EAGLE?! Someone check that scorecard 🦅';
+	if (diff === -1) return 'Birdie juice! First round is on you 🍹';
+	if (diff === 0) return 'Par. Respectable. Hydrate accordingly 🍺';
+	if (diff === 1) return 'Bogey. The beer cart heard that one 😅';
+	if (diff === 2) return 'Double. Shake it off, champ 🫡';
 	return 'That hole owes you an apology 🙈';
 }

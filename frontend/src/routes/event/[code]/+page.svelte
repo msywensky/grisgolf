@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import Leaderboard from '$lib/components/Leaderboard.svelte';
+	import { holePars } from '$lib/courses';
 	import { eventStore } from '$lib/eventStore.svelte';
 	import { getMyGolferId } from '$lib/session';
 	import type { Score, Team } from '$lib/types';
@@ -43,6 +44,17 @@
 	const holeNumbers = $derived(
 		bundle ? Array.from({ length: bundle.event.holes }, (_, i) => i + 1) : []
 	);
+
+	// Real pars from the linked course + tee; null hides the par UI entirely.
+	const pars = $derived(
+		bundle ? holePars(bundle.course, bundle.event.tee_name, bundle.event.tee_gender, bundle.event.holes) : null
+	);
+	const parTotal = $derived(pars?.reduce((sum, p) => sum + p, 0) ?? 0);
+
+	function teamGross(teamId: string): number | null {
+		const scores = (bundle?.scores ?? []).filter((s) => s.team_id === teamId);
+		return scores.length ? scores.reduce((sum, s) => sum + s.score, 0) : null;
+	}
 </script>
 
 {#if bundle}
@@ -76,6 +88,9 @@
 						<tr class="border-t border-white/5">
 							<td class="sticky left-0 bg-fairway-950/90 px-2 py-1.5 font-bold text-stone-300">
 								{hole}
+								{#if pars}
+									<span class="block text-[10px] font-normal text-stone-500">Par {pars[hole - 1]}</span>
+								{/if}
 							</td>
 							{#each bundle.teams as team (team.id)}
 								{@const cell = scoreFor.get(`${hole}:${team.id}`)}
@@ -98,6 +113,19 @@
 							{/each}
 						</tr>
 					{/each}
+					{#if pars}
+						<tr class="border-t border-white/10">
+							<td class="sticky left-0 bg-fairway-950/90 px-2 py-1.5 text-xs font-bold text-stone-400">
+								Par {parTotal}
+							</td>
+							{#each bundle.teams as team (team.id)}
+								{@const gross = teamGross(team.id)}
+								<td class="px-2 py-1.5 text-center text-xs font-bold text-stone-300">
+									{gross ?? '·'}
+								</td>
+							{/each}
+						</tr>
+					{/if}
 				</tbody>
 			</table>
 		</div>

@@ -1,6 +1,8 @@
 // Thin wrapper around the FastAPI backend (custom logic: event creation,
-// admin auth, cloning, ICS export). Everything else talks to Supabase directly.
+// admin auth, cloning, ICS export, course search). Everything else talks to
+// Supabase directly.
 import { env } from '$env/dynamic/public';
+import type { TeeBox, TeeGender } from './types';
 
 const API = () => env.PUBLIC_API_URL ?? 'http://localhost:8000';
 
@@ -28,6 +30,10 @@ export interface CreateEventInput {
 	holes: 9 | 18;
 	created_by: string;
 	admin_pin?: string;
+	// Link a real course (GolfCourseAPI id) + chosen tee, when picked from search.
+	external_course_id?: number;
+	tee_name?: string | null;
+	tee_gender?: TeeGender | null;
 }
 
 export interface CreateEventResult {
@@ -49,7 +55,16 @@ export function verifyAdmin(shareCode: string, pin: string): Promise<{ ok: boole
 export function updateEvent(
 	shareCode: string,
 	pin: string,
-	patch: Partial<{ title: string; course: string; date: string; status: string }>
+	patch: Partial<{
+		title: string;
+		course: string;
+		date: string;
+		status: string;
+		external_course_id: number;
+		tee_name: string | null;
+		tee_gender: TeeGender | null;
+		unlink_course: boolean;
+	}>
 ): Promise<{ ok: boolean }> {
 	return request(`/api/events/${shareCode}`, {
 		method: 'PATCH',
@@ -69,4 +84,22 @@ export function cloneEvent(shareCode: string, pin: string): Promise<CreateEventR
 /** URL for the recurring-series calendar file (ICS). */
 export function icsUrl(shareCode: string): string {
 	return `${API()}/api/events/${shareCode}/ics`;
+}
+
+/** One hit from the real-course search (backend proxy over GolfCourseAPI). */
+export interface CourseResult {
+	external_id: number;
+	club_name: string;
+	course_name: string;
+	city: string;
+	state: string;
+	tees: { male?: TeeBox[]; female?: TeeBox[] };
+}
+
+/** degraded=true means the external API was unreachable — cached courses only. */
+export function searchCourses(
+	q: string,
+	state: string
+): Promise<{ results: CourseResult[]; degraded: boolean }> {
+	return request(`/api/courses/search?q=${encodeURIComponent(q)}&state=${encodeURIComponent(state)}`);
 }

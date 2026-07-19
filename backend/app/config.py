@@ -18,6 +18,8 @@ class Settings:
             for origin in os.environ.get("CORS_ORIGINS", "http://localhost:5173").split(",")
             if origin.strip()
         ]
+        # Optional — course search degrades to cached-only without it.
+        self.golf_api_key = os.environ.get("GOLF_COURSE_API_KEY", "")
         if not self.supabase_url or not self.supabase_service_key:
             raise RuntimeError(
                 "Missing Supabase config. Copy backend/.env.example to backend/.env "

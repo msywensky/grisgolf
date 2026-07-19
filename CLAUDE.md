@@ -31,10 +31,12 @@ input itself, since RLS isn't protecting it there.
 - `backend/app/config.py` — env loading (`backend/.env` in dev), fails loudly if Supabase config is missing
 - `backend/app/db.py` — cached Supabase client (service role)
 - `backend/app/routers/events.py` — event lifecycle: create, verify-admin, update, clone, ICS export
+- `backend/app/routers/courses.py` — GolfCourseAPI search proxy + `courses` table cache (`GOLF_COURSE_API_KEY`, optional — search degrades to cached courses/free text without it)
 - `frontend/src/lib/supabase.ts` — lazy Supabase client, `fetchEventBundle` (one round-trip fetch of event + golfers + teams + scores + highlights), `subscribeToEvent` (realtime + 20s poll fallback), `uploadHighlightPhoto`
 - `frontend/src/lib/eventStore.svelte.ts` — rune-based store shared by every `/event/[code]` page; one fetch + one realtime subscription, everyone re-renders on change. Has an explicit `refresh()` for callers that just wrote data and shouldn't wait on realtime/polling (see the highlight-composer gotcha below)
 - `frontend/src/lib/types.ts` — shared row types mirroring `supabase/schema.sql`; import from here, never redeclare
 - `frontend/src/lib/scoring.ts` — match-point scoring logic
+- `frontend/src/lib/courses.ts` — real-course helpers (display name, directions URL, tee options, per-hole pars); `components/CoursePicker.svelte` is the course search UI shared by the landing form and admin page
 - `supabase/schema.sql` — tables, RLS policies, realtime publication, storage bucket policy (source of truth for the DB shape)
 - `supabase/seed.sql` — demo event at `/event/demo1234` (admin pin `1919`)
 

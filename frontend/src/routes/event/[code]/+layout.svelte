@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import { directionsUrl } from '$lib/courses';
 	import { eventStore } from '$lib/eventStore.svelte';
 	import { randomLoadingLine } from '$lib/copy';
 	import type { Snippet } from 'svelte';
@@ -65,6 +66,7 @@
 {:else if eventStore.bundle}
 	{@const ev = eventStore.bundle.event}
 	{@const badge = statusBadge(ev.status)}
+	{@const dirUrl = directionsUrl(eventStore.bundle.course)}
 	<header class="pt-6 pb-4">
 		<div class="flex items-start justify-between gap-3">
 			<a href="/" class="text-2xl" title="Home">🍺⛳</a>
@@ -78,7 +80,20 @@
 		<h1 class="font-display mt-2 text-3xl font-black text-white">{ev.title}</h1>
 		<p class="mt-1 flex flex-wrap items-center gap-2 text-sm text-stone-300">
 			<span class="rounded-full px-2.5 py-0.5 text-xs font-bold {badge.cls}">{badge.label}</span>
-			<span>📍 {ev.course}</span>
+			{#if dirUrl}
+				<!-- Linked real course: tap for driving directions -->
+				<a
+					href={dirUrl}
+					target="_blank"
+					rel="noopener"
+					class="tap underline decoration-dotted underline-offset-2"
+					title="Get directions"
+				>
+					📍 {ev.course}
+				</a>
+			{:else}
+				<span>📍 {ev.course}</span>
+			{/if}
 			<span>·</span>
 			<span>{new Date(ev.date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</span>
 			<span>·</span>

@@ -65,6 +65,30 @@ create table if not exists scores (
 alter table scores add column if not exists player1_shots int check (player1_shots between 0 and 10);
 alter table scores add column if not exists player2_shots int check (player2_shots between 0 and 10);
 
+-- Real golf courses cached from GolfCourseAPI. Written ONLY by the FastAPI
+-- backend (service role) when an organizer links a course to an event, so
+-- repeat events at the same course never re-hit the rate-limited external API.
+create table if not exists courses (
+  id uuid primary key default gen_random_uuid(),
+  external_id int not null unique,           -- GolfCourseAPI course id
+  club_name text not null,
+  course_name text not null,
+  address text,
+  city text,
+  state text,
+  country text,
+  latitude double precision,
+  longitude double precision,
+  tees jsonb not null default '{}'::jsonb,   -- {male: [TeeBox], female: [TeeBox]}
+  fetched_at timestamptz not null default now()
+);
+
+-- Existing databases: link events to a cached course + the tee the crew plays.
+-- tee_gender is needed because tee names repeat across the male/female sets.
+alter table events add column if not exists course_id uuid references courses(id);
+alter table events add column if not exists tee_name text;
+alter table events add column if not exists tee_gender text check (tee_gender in ('male', 'female'));
+
 create table if not exists highlights (
   id uuid primary key default gen_random_uuid(),
   event_id uuid not null references events(id) on delete cascade,
@@ -88,6 +112,7 @@ create index if not exists idx_highlights_event on highlights(event_id);
 
 alter table events enable row level security;
 alter table event_admins enable row level security;
+alter table courses enable row level security;
 alter table golfers enable row level security;
 alter table teams enable row level security;
 alter table scores enable row level security;
@@ -97,6 +122,9 @@ alter table highlights enable row level security;
 create policy "events are public to read" on events for select using (true);
 
 -- event_admins: NO policies — anon/authed get nothing, service role bypasses RLS.
+
+-- courses: public read only (cached via backend, which bypasses RLS)
+create policy "courses are public to read" on courses for select using (true);
 
 -- golfers: public read + join
 create policy "golfers are public to read" on golfers for select using (true);
