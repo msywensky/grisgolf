@@ -26,3 +26,16 @@ export function getAdminPin(code: string): string | null {
 export function setAdminPin(code: string, pin: string): void {
 	localStorage.setItem(key(code, 'pin'), pin);
 }
+
+// Global (not per-event) prefs — the crew crosses state lines, so the course
+// search remembers the last state they picked.
+
+const PREF_STATE_KEY = 'hmb:prefs:state';
+
+export function getPrefState(): string | null {
+	return localStorage.getItem(PREF_STATE_KEY);
+}
+
+export function setPrefState(state: string): void {
+	localStorage.setItem(PREF_STATE_KEY, state);
+}

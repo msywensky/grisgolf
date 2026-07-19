@@ -3,8 +3,10 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { cloneEvent, icsUrl, updateEvent, verifyAdmin } from '$lib/api';
+	import CoursePicker from '$lib/components/CoursePicker.svelte';
 	import { eventStore } from '$lib/eventStore.svelte';
 	import { getAdminPin, setAdminPin } from '$lib/session';
+	import type { TeeGender } from '$lib/types';
 
 	const code = $derived(page.params.code ?? '');
 	const bundle = $derived(eventStore.bundle);
@@ -74,6 +76,51 @@
 			busy = false;
 		}
 	}
+
+	// Course editing (real-course picker or free text)
+	let editingCourse = $state(false);
+	let courseText = $state('');
+	let courseExternalId = $state<number | null>(null);
+	let courseTeeName = $state<string | null>(null);
+	let courseTeeGender = $state<TeeGender | null>(null);
+
+	function openCourseEditor() {
+		courseText = '';
+		courseExternalId = null;
+		courseTeeName = null;
+		courseTeeGender = null;
+		editingCourse = true;
+	}
+
+	async function saveCourse() {
+		if (!bundle) return;
+		busy = true;
+		errorMsg = null;
+		try {
+			await updateEvent(
+				code,
+				pin,
+				courseExternalId !== null
+					? {
+							external_course_id: courseExternalId,
+							tee_name: courseTeeName,
+							tee_gender: courseTeeGender
+						}
+					: {
+							course: courseText.trim() || bundle.event.course,
+							unlink_course: true
+						}
+			);
+			await eventStore.refresh();
+			editingCourse = false;
+			statusMsg = '📍 Course updated. New pin location, same bad swings.';
+			setTimeout(() => (statusMsg = null), 3000);
+		} catch (err) {
+			errorMsg = err instanceof Error ? err.message : 'Course update hit the water.';
+		} finally {
+			busy = false;
+		}
+	}
 </script>
 
 {#if bundle}
@@ -138,6 +185,59 @@
 						</button>
 					{/each}
 				</div>
+			</div>
+
+			<!-- Course -->
+			<div class="card space-y-3 p-5">
+				<div class="flex items-center justify-between">
+					<h3 class="font-bold text-white">📍 Course</h3>
+					{#if !editingCourse}
+						<button
+							class="tap text-xs font-semibold text-stone-400 underline"
+							onclick={openCourseEditor}
+						>
+							Change course
+						</button>
+					{/if}
+				</div>
+				{#if !editingCourse}
+					<p class="text-sm text-stone-300">
+						<span class="font-bold text-white">{bundle.event.course}</span>
+						{#if bundle.event.course_id}
+							<span class="bg-fairway-800 text-fairway-200 ml-1 rounded-full px-2 py-0.5 text-[11px] font-bold">
+								⛳ linked
+							</span>
+						{/if}
+						{#if bundle.event.tee_name}
+							<span class="block text-xs text-stone-400">
+								Playing the {bundle.event.tee_name} tees
+							</span>
+						{/if}
+					</p>
+				{:else}
+					<CoursePicker
+						bind:courseName={courseText}
+						bind:externalId={courseExternalId}
+						bind:teeName={courseTeeName}
+						bind:teeGender={courseTeeGender}
+					/>
+					<div class="flex gap-2">
+						<button
+							class="tap press-pop bg-brew-500 flex-1 rounded-xl py-3 font-bold text-stone-900 disabled:opacity-50"
+							onclick={saveCourse}
+							disabled={busy || (courseExternalId === null && !courseText.trim())}
+						>
+							{busy ? 'Saving…' : 'Save course'}
+						</button>
+						<button
+							class="tap card rounded-xl px-4 py-3 text-sm font-bold text-stone-300"
+							onclick={() => (editingCourse = false)}
+							disabled={busy}
+						>
+							Cancel
+						</button>
+					</div>
+				{/if}
 			</div>
 
 			<!-- The delightful clone button -->

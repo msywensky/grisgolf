@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { createEvent } from '$lib/api';
+	import CoursePicker from '$lib/components/CoursePicker.svelte';
 	import { setAdminPin } from '$lib/session';
+	import type { TeeGender } from '$lib/types';
 
 	// Default to next Saturday — because that's when scrambles happen.
 	function nextSaturday(): string {
@@ -12,6 +14,9 @@
 
 	let title = $state('');
 	let course = $state('');
+	let externalCourseId = $state<number | null>(null);
+	let teeName = $state<string | null>(null);
+	let teeGender = $state<TeeGender | null>(null);
 	let date = $state(nextSaturday());
 	let holes = $state<9 | 18>(18);
 	let createdBy = $state('');
@@ -29,7 +34,10 @@
 				course: course.trim() || 'TBD (wherever has the cheapest cart beers)',
 				date,
 				holes,
-				created_by: createdBy.trim() || 'The Commissioner'
+				created_by: createdBy.trim() || 'The Commissioner',
+				...(externalCourseId !== null
+					? { external_course_id: externalCourseId, tee_name: teeName, tee_gender: teeGender }
+					: {})
 			});
 			// Remember the pin locally and show it once on the admin page.
 			setAdminPin(result.share_code, result.admin_pin);
@@ -87,14 +95,12 @@
 				/>
 			</label>
 
-			<label class="block text-sm font-medium text-stone-300">
-				Course
-				<input
-					class="tap mt-1 w-full rounded-xl border border-white/15 bg-black/20 px-4 py-3 text-white placeholder:text-stone-500"
-					placeholder="Sunny Pines Muni"
-					bind:value={course}
-				/>
-			</label>
+			<CoursePicker
+				bind:courseName={course}
+				bind:externalId={externalCourseId}
+				bind:teeName
+				bind:teeGender
+			/>
 
 			<div class="flex gap-3">
 				<label class="block flex-1 text-sm font-medium text-stone-300">

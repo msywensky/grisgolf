@@ -57,6 +57,12 @@ uvicorn app.main:app --reload --port 8000
 
 Sanity check: `curl localhost:8000` → `{"status":"ok","vibe":"🍺⛳ hold my beer"}`
 
+Optional: set `GOLF_COURSE_API_KEY` in `backend/.env` to enable real-course
+search on the create-event and admin pages (free key from
+[golfcourseapi.com](https://golfcourseapi.com) — sign up with just an email).
+Without it, organizers can still type a course name by hand, and any courses
+already cached in the `courses` table remain searchable.
+
 ### 3. Frontend (SvelteKit)
 
 ```bash
@@ -120,6 +126,9 @@ gcloud services enable run.googleapis.com artifactregistry.googleapis.com \
 
 # Store the Supabase secret key in Secret Manager rather than a plain env var
 printf 'your-secret-key-value' | gcloud secrets create supabase-service-role-key --data-file=-
+
+# Optional: the GolfCourseAPI key for real-course search
+printf 'your-golf-api-key' | gcloud secrets create golf-course-api-key --data-file=-
 ```
 
 Build and deploy from the repo root:
@@ -130,8 +139,11 @@ gcloud run deploy hmb-scramble-api \
   --region us-central1 \
   --allow-unauthenticated \
   --set-env-vars SUPABASE_URL=https://YOUR-PROJECT.supabase.co,CORS_ORIGINS=https://scramble.hmbgolf.com \
-  --set-secrets SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest
+  --set-secrets SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest,GOLF_COURSE_API_KEY=golf-course-api-key:latest
 ```
+
+(Drop the `GOLF_COURSE_API_KEY` secret from `--set-secrets` if you're skipping
+real-course search.)
 
 This gives you a `https://hmb-scramble-api-xxxxxxxxxx-uc.a.run.app` URL — test it
 with `curl <url>/` (expect `{"status":"ok","vibe":"🍺⛳ hold my beer"}`), then set
