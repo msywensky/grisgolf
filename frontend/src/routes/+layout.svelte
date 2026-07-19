@@ -9,6 +9,6 @@
 	{@render children()}
 
 	<footer class="mt-auto pt-10 text-center text-xs text-stone-400">
-		🍺 Hold My Beer Scramble — drink responsibly, putt irresponsibly.
+		🍺 Hold My Beer Scramble v{__APP_VERSION__} — drink responsibly, putt irresponsibly.
 	</footer>
 </div>
