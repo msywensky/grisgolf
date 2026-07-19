@@ -12,6 +12,11 @@ export interface LeaderboardRow {
 	matchPoints: number;
 	record: { w: number; l: number; t: number };
 	position: number;
+	/**
+	 * Total strokes attributed to each roster slot (player1/player2) across
+	 * holes where the split was recorded; null if no hole has one yet.
+	 */
+	shotsUsed: { p1: number; p2: number } | null;
 }
 
 /**
@@ -48,6 +53,18 @@ export function buildLeaderboard(
 		const thru = teamScores.length;
 		const gross = teamScores.reduce((sum, s) => sum + s.score, 0);
 
+		// Shots-used split, summed over holes that recorded one.
+		const splitScores = teamScores.filter(
+			(s) => s.player1_shots !== null || s.player2_shots !== null
+		);
+		const shotsUsed =
+			splitScores.length > 0
+				? {
+						p1: splitScores.reduce((sum, s) => sum + (s.player1_shots ?? 0), 0),
+						p2: splitScores.reduce((sum, s) => sum + (s.player2_shots ?? 0), 0)
+					}
+				: null;
+
 		// Prorate the allowance by holes played so mid-round net is meaningful.
 		const allowance = teamAllowance(players, event.holes);
 		const net = thru > 0 ? Math.round((gross - (allowance * thru) / event.holes) * 10) / 10 : 0;
@@ -74,7 +91,8 @@ export function buildLeaderboard(
 			net,
 			matchPoints: w + t * 0.5,
 			record: { w, l, t },
-			position: 0
+			position: 0,
+			shotsUsed
 		};
 	});
 

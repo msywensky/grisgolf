@@ -35,6 +35,9 @@ export interface Score {
 	team_id: string;
 	hole_number: number;
 	score: number;
+	/** Strokes attributed to the golfer in the team's player1/player2 slot (optional split). */
+	player1_shots: number | null;
+	player2_shots: number | null;
 	notes: string | null;
 }
 

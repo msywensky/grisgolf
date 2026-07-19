@@ -14,6 +14,9 @@
 	let teamId = $state<string | null>(null);
 	let hole = $state(1);
 	let notes = $state('');
+	// Staged "whose shots counted" split for the current hole (0 = untagged).
+	let p1Shots = $state(0);
+	let p2Shots = $state(0);
 	let saving = $state(false);
 	let toast = $state<string | null>(null);
 	let errorMsg = $state<string | null>(null);
@@ -25,13 +28,19 @@
 		const remembered = getMyTeamId(code);
 		if (remembered && bundle.teams.some((t) => t.id === remembered)) {
 			teamId = remembered;
-			hole = firstOpenHole(remembered);
+			gotoHole(firstOpenHole(remembered));
 		}
 	});
 
 	const myTeam = $derived(bundle?.teams.find((t) => t.id === teamId) ?? null);
 	const myScores = $derived((bundle?.scores ?? []).filter((s) => s.team_id === teamId));
 	const currentEntry = $derived(myScores.find((s) => s.hole_number === hole) ?? null);
+	const player1 = $derived(
+		bundle?.golfers.find((g) => g.id === myTeam?.player1_id) ?? null
+	);
+	const player2 = $derived(
+		bundle?.golfers.find((g) => g.id === myTeam?.player2_id) ?? null
+	);
 	const myRow = $derived.by(() => {
 		if (!bundle || !teamId) return null;
 		return (
@@ -53,13 +62,23 @@
 	function pickTeam(id: string) {
 		teamId = id;
 		setMyTeamId(code, id);
-		hole = firstOpenHole(id);
+		gotoHole(firstOpenHole(id));
+	}
+
+	// Central hole switch: reset the staged note/split to what's saved there.
+	function gotoHole(h: number) {
+		hole = h;
+		notes = '';
+		const saved = (bundle?.scores ?? []).find(
+			(s) => s.team_id === teamId && s.hole_number === h
+		);
+		p1Shots = saved?.player1_shots ?? 0;
+		p2Shots = saved?.player2_shots ?? 0;
 	}
 
 	function moveHole(delta: number) {
 		if (!bundle) return;
-		hole = Math.min(bundle.event.holes, Math.max(1, hole + delta));
-		notes = '';
+		gotoHole(Math.min(bundle.event.holes, Math.max(1, hole + delta)));
 	}
 
 	async function saveScore(value: number) {
@@ -75,6 +94,9 @@
 						team_id: teamId,
 						hole_number: hole,
 						score: value,
+						// An all-zero split means "not tracked", not "nobody hit anything".
+						player1_shots: p1Shots || p2Shots ? p1Shots : null,
+						player2_shots: p1Shots || p2Shots ? p2Shots : null,
 						notes: notes.trim() || currentEntry?.notes || null
 					},
 					{ onConflict: 'event_id,team_id,hole_number' }
@@ -90,6 +112,35 @@
 		} finally {
 			saving = false;
 		}
+	}
+
+	// Tag whose ball got used. On a hole that's already saved, persist right away;
+	// otherwise it stays staged and rides along with the next score tap.
+	async function adjustShots(slot: 1 | 2, delta: number) {
+		const next = Math.min(10, Math.max(0, (slot === 1 ? p1Shots : p2Shots) + delta));
+		if (slot === 1) p1Shots = next;
+		else p2Shots = next;
+		if (!bundle || !teamId || !currentEntry) return;
+		errorMsg = null;
+		const { error } = await supabase()
+			.from('scores')
+			.upsert(
+				{
+					event_id: bundle.event.id,
+					team_id: teamId,
+					hole_number: hole,
+					score: currentEntry.score,
+					player1_shots: p1Shots || p2Shots ? p1Shots : null,
+					player2_shots: p1Shots || p2Shots ? p2Shots : null,
+					notes: currentEntry.notes
+				},
+				{ onConflict: 'event_id,team_id,hole_number' }
+			);
+		if (error) {
+			errorMsg = error.message;
+			return;
+		}
+		await eventStore.refresh();
 	}
 </script>
 
@@ -184,6 +235,55 @@
 					</button>
 				{/each}
 			</div>
+
+			<!-- Whose shots counted -->
+			{#if player1 || player2}
+				<div class="card space-y-2.5 p-4">
+					<div class="flex items-baseline justify-between">
+						<p class="text-xs font-bold tracking-widest text-stone-400 uppercase">
+							Whose shots counted?
+						</p>
+						{#if currentEntry}
+							<p
+								class="text-[11px] font-semibold {p1Shots + p2Shots === currentEntry.score
+									? 'text-fairway-300'
+									: 'text-stone-500'}"
+							>
+								{p1Shots + p2Shots}/{currentEntry.score} tagged
+							</p>
+						{/if}
+					</div>
+					{#each [{ slot: 1 as const, golfer: player1, count: p1Shots }, { slot: 2 as const, golfer: player2, count: p2Shots }] as row (row.slot)}
+						{#if row.golfer}
+							<div class="flex items-center justify-between gap-3">
+								<p class="min-w-0 truncate font-bold text-white">{row.golfer.name}</p>
+								<div class="flex items-center gap-1.5">
+									<button
+										class="tap press-pop h-11 w-11 rounded-xl bg-white/10 text-xl font-black text-stone-200 disabled:opacity-30"
+										onclick={() => adjustShots(row.slot, -1)}
+										disabled={row.count <= 0}
+										aria-label="Fewer shots for {row.golfer.name}"
+									>
+										−
+									</button>
+									<span class="w-9 text-center text-xl font-black text-white">{row.count}</span>
+									<button
+										class="tap press-pop h-11 w-11 rounded-xl bg-white/10 text-xl font-black text-stone-200 disabled:opacity-30"
+										onclick={() => adjustShots(row.slot, 1)}
+										disabled={row.count >= 10}
+										aria-label="More shots for {row.golfer.name}"
+									>
+										+
+									</button>
+								</div>
+							</div>
+						{/if}
+					{/each}
+					{#if !currentEntry}
+						<p class="text-[11px] text-stone-500">Saves with the score when you tap a number.</p>
+					{/if}
+				</div>
+			{/if}
 
 			<!-- Note chips -->
 			<div class="flex flex-wrap gap-2">

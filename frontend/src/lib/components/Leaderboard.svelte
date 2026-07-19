@@ -21,6 +21,14 @@
 		return ['🥇', '🥈', '🥉'][row.position - 1] ?? `${row.position}`;
 	}
 
+	/** "Rick 12 · Tommy 9" — shots-used totals matched back to roster slots. */
+	function shotsLine(row: LeaderboardRow): string | null {
+		if (!row.shotsUsed) return null;
+		const name = (id: string | null) =>
+			row.players.find((p) => p.id === id)?.name.split(' ')[0] ?? '?';
+		return `${name(row.team.player1_id)} ${row.shotsUsed.p1} · ${name(row.team.player2_id)} ${row.shotsUsed.p2}`;
+	}
+
 	const sortButtons: { key: SortKey; label: string }[] = [
 		{ key: 'net', label: 'Net' },
 		{ key: 'gross', label: 'Gross' },
@@ -63,6 +71,11 @@
 							· thru {row.thru}
 						{/if}
 					</p>
+					{#if shotsLine(row)}
+						<p class="text-brew-300/80 truncate text-[11px] font-semibold">
+							🏌️ {shotsLine(row)} shots used
+						</p>
+					{/if}
 				</div>
 				<div class="flex gap-4 text-center">
 					<div>
