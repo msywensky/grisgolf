@@ -10,8 +10,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 	let res: Response;
 	try {
 		res = await fetch(`${API()}${path}`, {
-			headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
-			...init
+			...init,
+			headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) }
 		});
 	} catch {
 		throw new Error("Can't reach the clubhouse (backend). Is the FastAPI server running? 🍺");
