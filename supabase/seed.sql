@@ -196,16 +196,16 @@ insert into teams (id, name, event_id, player1_id, player2_id, season_team_id) v
 
 -- Night 1: Mug Club 37, Foam Rangers 40. Night 2: Mug Club 36, Foam Rangers 40.
 insert into scores (event_id, team_id, hole_number, score)
-select 'a0000000-0000-4000-8000-000000000002', 'c1000000-0000-4000-8000-000000000001', h, s
+select 'a0000000-0000-4000-8000-000000000002'::uuid, 'c1000000-0000-4000-8000-000000000001'::uuid, h, s
 from unnest(array[4,4,4,5,4,3,4,5,4]) with ordinality as t(s, h)
 union all
-select 'a0000000-0000-4000-8000-000000000002', 'c1000000-0000-4000-8000-000000000002', h, s
+select 'a0000000-0000-4000-8000-000000000002'::uuid, 'c1000000-0000-4000-8000-000000000002'::uuid, h, s
 from unnest(array[5,4,5,4,5,3,4,6,4]) with ordinality as t(s, h)
 union all
-select 'a0000000-0000-4000-8000-000000000003', 'c1000000-0000-4000-8000-000000000003', h, s
+select 'a0000000-0000-4000-8000-000000000003'::uuid, 'c1000000-0000-4000-8000-000000000003'::uuid, h, s
 from unnest(array[4,3,5,4,4,3,4,5,4]) with ordinality as t(s, h)
 union all
-select 'a0000000-0000-4000-8000-000000000003', 'c1000000-0000-4000-8000-000000000004', h, s
+select 'a0000000-0000-4000-8000-000000000003'::uuid, 'c1000000-0000-4000-8000-000000000004'::uuid, h, s
 from unnest(array[5,4,5,4,4,4,4,5,5]) with ordinality as t(s, h);
 
 insert into highlights (event_id, hole_number, team_id, caption, image_url) values
