@@ -35,3 +35,33 @@ def build_ics(title: str, course: str, start: date, share_code: str, weeks: int 
     ]
     # ICS spec wants CRLF line endings
     return "\r\n".join(lines) + "\r\n"
+
+
+def build_league_ics(league_name: str, share_code: str, events: list[dict]) -> str:
+    """One VEVENT per scheduled league night (8am–noon), no recurrence.
+
+    Each event dict needs: share_code, title, course, date (ISO string).
+    """
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//HMB Scramble//EN",
+        "CALSCALE:GREGORIAN",
+        f"X-WR-CALNAME:{_escape('🍺⛳ ' + league_name)}",
+    ]
+    for ev in events:
+        day = date.fromisoformat(ev["date"])
+        lines += [
+            "BEGIN:VEVENT",
+            f"UID:hmb-{share_code}-{ev['share_code']}@hmbscramble",
+            f"DTSTAMP:{stamp}",
+            f"DTSTART:{day.strftime('%Y%m%dT080000')}",
+            f"DTEND:{day.strftime('%Y%m%dT120000')}",
+            f"SUMMARY:{_escape('🍺⛳ ' + ev['title'])}",
+            f"LOCATION:{_escape(ev['course'])}",
+            f"DESCRIPTION:{_escape(league_name + ' — 2v2 scramble league night.')}",
+            "END:VEVENT",
+        ]
+    lines.append("END:VCALENDAR")
+    return "\r\n".join(lines) + "\r\n"

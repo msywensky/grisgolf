@@ -1,6 +1,7 @@
 <script lang="ts">
 	// The on-course screen. Design goals: one thumb, bright sun, two beers deep.
 	import { page } from '$app/state';
+	import { authStore } from '$lib/auth.svelte';
 	import HighlightComposer from '$lib/components/HighlightComposer.svelte';
 	import { NOTE_CHIPS } from '$lib/copy';
 	import { holePars } from '$lib/courses';
@@ -150,6 +151,15 @@
 </script>
 
 {#if bundle}
+	{#if bundle.event.league_id && !authStore.session && !authStore.loading}
+		<!-- League nights are members-only for scoring (RLS enforces it too). -->
+		<a
+			href={bundle.league ? `/league/${bundle.league.share_code}/join` : '/leagues'}
+			class="card border-brew-500/40 mb-4 block p-4 text-center text-sm text-stone-200 hover:bg-white/5"
+		>
+			🏆 This is a league night — <span class="font-bold underline">sign in</span> to enter scores.
+		</a>
+	{/if}
 	{#if !myTeam}
 		<!-- Team picker -->
 		<div class="card wobble-in space-y-3 p-5">

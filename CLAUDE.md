@@ -11,14 +11,15 @@ dev, Vercel + Railway/Render/Cloud Run deployment steps.
 - **Frontend:** Svelte 5 (runes) + SvelteKit 2 (SPA mode, `ssr = false`) + Tailwind CSS 4 + TypeScript, deployed to Vercel
 - **Backend:** FastAPI (Python), deployed to Cloud Run (or Railway/Render) — see `backend/Dockerfile`
 - **Database/Auth/Realtime/Storage:** Supabase (Postgres + RLS, `postgres_changes` realtime, Storage bucket for highlight photos)
-- **No user accounts.** Players are remembered per-event in `localStorage`; organizers get a 4-digit admin pin.
+- **No user accounts for casual scrambles.** Players are remembered per-event in `localStorage`; organizers get a 4-digit admin pin.
+- **League mode (optional)** layers Supabase Auth (email magic link) on top: persistent player profiles, leagues with managers + rosters, seasons with fixed 2-person teams, and season standings. `events.league_id` null = casual event, unchanged. League writes go through the backend with a JWT; RLS gates score/team writes on league events to roster members (`can_write_event` in `supabase/schema.sql`).
 
 ### Two-lane split (mirrors the trust boundary, not just the folder layout)
 
 | Lane | Talks to | Handles |
 |---|---|---|
 | **Frontend → Supabase directly** | Publishable (anon) key, gated by RLS | Reads, realtime leaderboard, score entry, joins, highlight uploads |
-| **Frontend → FastAPI backend** | `PUBLIC_API_URL` | Only the trusted bits: event creation (share code + admin pin), admin pin verification, "Clone for Next Weekend", ICS export |
+| **Frontend → FastAPI backend** | `PUBLIC_API_URL` | Only the trusted bits: event creation (share code + admin pin), admin pin verification, "Clone for Next Weekend", ICS export, and all league writes (JWT-verified via Supabase Auth) |
 
 The backend uses the Supabase **Secret** (service-role) key and bypasses RLS —
 that's the only reason admin pins can live in a table the public can't read
@@ -31,14 +32,19 @@ input itself, since RLS isn't protecting it there.
 - `backend/app/config.py` — env loading (`backend/.env` in dev), fails loudly if Supabase config is missing
 - `backend/app/db.py` — cached Supabase client (service role)
 - `backend/app/routers/events.py` — event lifecycle: create, verify-admin, update, clone, ICS export
+- `backend/app/routers/leagues.py` — league lifecycle: create, join, seasons, fixed pairs, league-night creation (pre-populates teams from season pairs), season ICS
+- `backend/app/auth.py` — `require_user` dependency: verifies the Supabase JWT for league routes
 - `backend/app/routers/courses.py` — GolfCourseAPI search proxy + `courses` table cache (`GOLF_COURSE_API_KEY`, optional — search degrades to cached courses/free text without it)
 - `frontend/src/lib/supabase.ts` — lazy Supabase client, `fetchEventBundle` (one round-trip fetch of event + golfers + teams + scores + highlights), `subscribeToEvent` (realtime + 20s poll fallback), `uploadHighlightPhoto`
 - `frontend/src/lib/eventStore.svelte.ts` — rune-based store shared by every `/event/[code]` page; one fetch + one realtime subscription, everyone re-renders on change. Has an explicit `refresh()` for callers that just wrote data and shouldn't wait on realtime/polling (see the highlight-composer gotcha below)
 - `frontend/src/lib/types.ts` — shared row types mirroring `supabase/schema.sql`; import from here, never redeclare
 - `frontend/src/lib/scoring.ts` — match-point scoring logic
+- `frontend/src/lib/auth.svelte.ts` — rune store around Supabase Auth (magic link); initialized once in the root layout
+- `frontend/src/lib/leagueStore.svelte.ts` — rune store for `/league/[code]` pages (no realtime — league pages are standings views; callers `refresh()` after writes)
+- `frontend/src/lib/standings.ts` — season standings: folds per-night `buildLeaderboard` results into placement/match-point/record totals per fixed pair
 - `frontend/src/lib/courses.ts` — real-course helpers (display name, directions URL, tee options, per-hole pars); `components/CoursePicker.svelte` is the course search UI shared by the landing form and admin page
 - `supabase/schema.sql` — tables, RLS policies, realtime publication, storage bucket policy (source of truth for the DB shape)
-- `supabase/seed.sql` — demo event at `/event/demo1234` (admin pin `1919`)
+- `supabase/seed.sql` — demo event at `/event/demo1234` (admin pin `1919`) + demo league at `/league/demoleag`
 
 ### Routes
 
@@ -50,6 +56,10 @@ input itself, since RLS isn't protecting it there.
 | `/event/{code}/score` | On-course scoring |
 | `/event/{code}/highlights` | Every Epic Shot, shareable as a canvas-rendered card |
 | `/event/{code}/admin` | Status, roster, Clone for Next Weekend, ICS export |
+| `/leagues` | My leagues + Start a League (requires sign-in) |
+| `/league/{code}` | Public league home: season standings, schedule, league lore |
+| `/league/{code}/join` | Magic-link sign-in + join the roster |
+| `/league/{code}/admin` | Manager dashboard: scoring mode, seasons, fixed pairs, schedule league nights, season ICS |
 
 ## Commands
 

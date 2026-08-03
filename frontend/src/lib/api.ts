@@ -2,7 +2,7 @@
 // admin auth, cloning, ICS export, course search). Everything else talks to
 // Supabase directly.
 import { env } from '$env/dynamic/public';
-import type { TeeBox, TeeGender } from './types';
+import type { ScoringMode, Season, TeeBox, TeeGender } from './types';
 
 const API = () => env.PUBLIC_API_URL ?? 'http://localhost:8000';
 
@@ -94,6 +94,130 @@ export interface CourseResult {
 	city: string;
 	state: string;
 	tees: { male?: TeeBox[]; female?: TeeBox[] };
+}
+
+// ---------- League mode (JWT-authed routes) ----------
+
+/** Same request helper, plus the caller's Supabase access token. */
+function authed(token: string): { Authorization: string } {
+	return { Authorization: `Bearer ${token}` };
+}
+
+export interface CreateLeagueInput {
+	name: string;
+	scoring_mode?: ScoringMode;
+	placement_points?: number[];
+	display_name: string;
+	handicap?: number;
+}
+
+export function createLeague(
+	token: string,
+	input: CreateLeagueInput
+): Promise<{ share_code: string }> {
+	return request('/api/leagues', {
+		method: 'POST',
+		headers: authed(token),
+		body: JSON.stringify(input)
+	});
+}
+
+export function updateLeague(
+	token: string,
+	code: string,
+	patch: Partial<{ name: string; scoring_mode: ScoringMode; placement_points: number[] }>
+): Promise<{ ok: boolean }> {
+	return request(`/api/leagues/${code}`, {
+		method: 'PATCH',
+		headers: authed(token),
+		body: JSON.stringify(patch)
+	});
+}
+
+export function joinLeague(
+	token: string,
+	code: string,
+	input: { display_name?: string; handicap?: number }
+): Promise<{ ok: boolean }> {
+	return request(`/api/leagues/${code}/join`, {
+		method: 'POST',
+		headers: authed(token),
+		body: JSON.stringify(input)
+	});
+}
+
+export function createSeason(
+	token: string,
+	code: string,
+	input: { name: string; starts_on?: string; ends_on?: string }
+): Promise<Season> {
+	return request(`/api/leagues/${code}/seasons`, {
+		method: 'POST',
+		headers: authed(token),
+		body: JSON.stringify(input)
+	});
+}
+
+export function updateSeason(
+	token: string,
+	code: string,
+	seasonId: string,
+	patch: Partial<{ name: string; status: 'active' | 'complete' }>
+): Promise<{ ok: boolean }> {
+	return request(`/api/leagues/${code}/seasons/${seasonId}`, {
+		method: 'PATCH',
+		headers: authed(token),
+		body: JSON.stringify(patch)
+	});
+}
+
+export interface SeasonTeamInput {
+	name: string;
+	player1_user_id: string | null;
+	player2_user_id: string | null;
+}
+
+/** Replace the season's fixed pairs wholesale. */
+export function setSeasonTeams(
+	token: string,
+	code: string,
+	seasonId: string,
+	teams: SeasonTeamInput[]
+): Promise<{ ok: boolean }> {
+	return request(`/api/leagues/${code}/seasons/${seasonId}/teams`, {
+		method: 'PUT',
+		headers: authed(token),
+		body: JSON.stringify({ teams })
+	});
+}
+
+export interface CreateLeagueEventInput {
+	season_id: string;
+	title: string;
+	course: string;
+	date: string;
+	holes: 9 | 18;
+	external_course_id?: number;
+	tee_name?: string | null;
+	tee_gender?: TeeGender | null;
+}
+
+/** Schedule a league night — teams come pre-loaded from the season pairs. */
+export function createLeagueEvent(
+	token: string,
+	code: string,
+	input: CreateLeagueEventInput
+): Promise<CreateEventResult & { date: string }> {
+	return request(`/api/leagues/${code}/events`, {
+		method: 'POST',
+		headers: authed(token),
+		body: JSON.stringify(input)
+	});
+}
+
+/** URL for the league's full-schedule calendar file (ICS). */
+export function leagueIcsUrl(code: string): string {
+	return `${API()}/api/leagues/${code}/ics`;
 }
 
 /** degraded=true means the external API was unreachable — cached courses only. */

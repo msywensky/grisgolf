@@ -16,6 +16,9 @@ export interface Event {
 	created_by: string;
 	share_code: string;
 	created_at: string;
+	/** Set when this event is a league night; null = casual scramble. */
+	league_id: string | null;
+	season_id: string | null;
 }
 
 /** One tee box from GolfCourseAPI, stored inside courses.tees jsonb. */
@@ -49,6 +52,8 @@ export interface Golfer {
 	name: string;
 	handicap: number;
 	event_id: string;
+	/** Account link for league play; null = anonymous casual golfer. */
+	user_id: string | null;
 }
 
 export interface Team {
@@ -57,6 +62,8 @@ export interface Team {
 	event_id: string;
 	player1_id: string | null;
 	player2_id: string | null;
+	/** Ties a league night's team back to its fixed season pair. */
+	season_team_id: string | null;
 }
 
 export interface Score {
@@ -86,8 +93,69 @@ export interface Highlight {
 export interface EventBundle {
 	event: Event;
 	course: Course | null; // the linked real course, when the event has one
+	league: League | null; // set when the event is a league night
 	golfers: Golfer[];
 	teams: Team[];
+	scores: Score[];
+	highlights: Highlight[];
+}
+
+// ---------- League mode ----------
+
+export type ScoringMode = 'placement' | 'match_points' | 'record';
+export type SeasonStatus = 'active' | 'complete';
+
+export interface Profile {
+	id: string; // = auth user id
+	display_name: string;
+	default_handicap: number;
+}
+
+export interface League {
+	id: string;
+	name: string;
+	share_code: string;
+	scoring_mode: ScoringMode;
+	/** Points by finishing position when scoring_mode = 'placement'. */
+	placement_points: number[];
+	created_at: string;
+}
+
+export interface LeagueMember {
+	league_id: string;
+	user_id: string;
+	joined_at: string;
+}
+
+export interface Season {
+	id: string;
+	league_id: string;
+	name: string;
+	starts_on: string | null;
+	ends_on: string | null;
+	status: SeasonStatus;
+}
+
+/** A fixed 2-person pair for a season. */
+export interface SeasonTeam {
+	id: string;
+	season_id: string;
+	name: string;
+	player1_user_id: string | null;
+	player2_user_id: string | null;
+}
+
+/** Everything the league pages need, fetched in one go. */
+export interface LeagueBundle {
+	league: League;
+	managerIds: string[];
+	members: LeagueMember[];
+	profiles: Profile[]; // everyone referenced by the roster + season teams
+	seasons: Season[];
+	seasonTeams: SeasonTeam[];
+	events: Event[]; // league nights, oldest first
+	teams: Team[]; // per-night teams across all league nights
+	golfers: Golfer[];
 	scores: Score[];
 	highlights: Highlight[];
 }
