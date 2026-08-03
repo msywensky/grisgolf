@@ -80,7 +80,7 @@
 	// Course editing (real-course picker or free text)
 	let editingCourse = $state(false);
 	let courseText = $state('');
-	let courseExternalId = $state<number | null>(null);
+	let courseExternalId = $state<string | null>(null);
 	let courseTeeName = $state<string | null>(null);
 	let courseTeeGender = $state<TeeGender | null>(null);
 

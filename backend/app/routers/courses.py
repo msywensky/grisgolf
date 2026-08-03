@@ -34,7 +34,7 @@ _RECENT_CAP = 200
 
 def _remember(course: dict) -> None:
     external_id = course.get("id")
-    if not isinstance(external_id, int):
+    if not isinstance(external_id, str) or not external_id:
         return
     _recent.pop(external_id, None)
     _recent[external_id] = course
@@ -56,7 +56,7 @@ def display_name(row: dict) -> str:
 
 
 class CourseSummary(BaseModel):
-    external_id: int
+    external_id: str
     club_name: str
     course_name: str
     city: str = ""
@@ -69,7 +69,7 @@ class SearchResponse(BaseModel):
     degraded: bool = False
 
 
-def _summary(external_id: int, club: str, course: str, city: Any, state: Any, tees: Any) -> CourseSummary:
+def _summary(external_id: str, club: str, course: str, city: Any, state: Any, tees: Any) -> CourseSummary:
     return CourseSummary(
         external_id=external_id,
         club_name=club or "",
@@ -87,7 +87,7 @@ def search_courses(
 ) -> SearchResponse:
     state = state.upper()
     results: list[CourseSummary] = []
-    seen: set[int] = set()
+    seen: set[str] = set()
 
     # 1) Our own cache — free, and where the crew's usual courses end up.
     # PostgREST or= syntax breaks on commas/parens, so strip them from the term.
@@ -132,7 +132,7 @@ def search_courses(
                 if loc.get("country") != "United States" or loc.get("state") != state:
                     continue
                 _remember(course)
-                if not isinstance(course.get("id"), int) or course["id"] in seen:
+                if not isinstance(course.get("id"), str) or course["id"] in seen:
                     continue
                 results.append(
                     _summary(course["id"], course.get("club_name", ""), course.get("course_name", ""),
@@ -154,7 +154,7 @@ def _parse_ts(value: str) -> Optional[datetime]:
         return None
 
 
-def _fetch_course(external_id: int) -> Optional[dict]:
+def _fetch_course(external_id: str) -> Optional[dict]:
     """Full course payload: recent-search LRU first, external API second."""
     course = _recent.get(external_id)
     if course is not None:
@@ -175,7 +175,7 @@ def _fetch_course(external_id: int) -> Optional[dict]:
         return None
 
 
-def ensure_cached(external_id: int) -> dict:
+def ensure_cached(external_id: str) -> dict:
     """Return the `courses` row for an external id, fetching/upserting if needed.
 
     A stale cached row beats a failed refresh; only no-row-at-all is an error.

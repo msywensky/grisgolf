@@ -14,7 +14,7 @@
 
 	let title = $state('');
 	let course = $state('');
-	let externalCourseId = $state<number | null>(null);
+	let externalCourseId = $state<string | null>(null);
 	let teeName = $state<string | null>(null);
 	let teeGender = $state<TeeGender | null>(null);
 	let date = $state(nextSaturday());

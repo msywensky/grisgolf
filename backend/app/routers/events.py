@@ -66,7 +66,7 @@ class CreateEvent(BaseModel):
     created_by: str = Field(min_length=1, max_length=60)
     admin_pin: Optional[str] = Field(default=None, min_length=4, max_length=4)
     # Link a real course (GolfCourseAPI id) + the tee the crew plays.
-    external_course_id: Optional[int] = None
+    external_course_id: Optional[str] = None
     tee_name: Optional[str] = Field(default=None, max_length=60)
     tee_gender: Optional[Literal["male", "female"]] = None
 
@@ -119,7 +119,7 @@ class UpdateEvent(BaseModel):
     status: Optional[Literal["upcoming", "live", "final"]] = None
     # Course linking. The None-dropping patch below can't express "clear the
     # link", so unlinking is an explicit flag.
-    external_course_id: Optional[int] = None
+    external_course_id: Optional[str] = None
     tee_name: Optional[str] = Field(default=None, max_length=60)
     tee_gender: Optional[Literal["male", "female"]] = None
     unlink_course: bool = False

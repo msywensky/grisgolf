@@ -31,7 +31,7 @@ export interface CreateEventInput {
 	created_by: string;
 	admin_pin?: string;
 	// Link a real course (GolfCourseAPI id) + chosen tee, when picked from search.
-	external_course_id?: number;
+	external_course_id?: string;
 	tee_name?: string | null;
 	tee_gender?: TeeGender | null;
 }
@@ -60,7 +60,7 @@ export function updateEvent(
 		course: string;
 		date: string;
 		status: string;
-		external_course_id: number;
+		external_course_id: string;
 		tee_name: string | null;
 		tee_gender: TeeGender | null;
 		unlink_course: boolean;
@@ -88,7 +88,7 @@ export function icsUrl(shareCode: string): string {
 
 /** One hit from the real-course search (backend proxy over GolfCourseAPI). */
 export interface CourseResult {
-	external_id: number;
+	external_id: string;
 	club_name: string;
 	course_name: string;
 	city: string;
@@ -197,7 +197,7 @@ export interface CreateLeagueEventInput {
 	course: string;
 	date: string;
 	holes: 9 | 18;
-	external_course_id?: number;
+	external_course_id?: string;
 	tee_name?: string | null;
 	tee_gender?: TeeGender | null;
 }
