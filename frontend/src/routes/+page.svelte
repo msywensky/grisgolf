@@ -77,6 +77,12 @@
 			</button>
 			<a
 				class="tap press-pop card flex items-center justify-center px-8 py-4 text-lg font-semibold text-stone-100 hover:bg-white/10"
+				href="/leagues"
+			>
+				🏆 Run a League
+			</a>
+			<a
+				class="tap press-pop card flex items-center justify-center px-8 py-4 text-lg font-semibold text-stone-100 hover:bg-white/10"
 				href="/event/demo1234"
 			>
 				👀 Peek at a live demo event

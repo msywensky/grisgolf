@@ -100,6 +100,118 @@ insert into scores (event_id, team_id, hole_number, score, player1_shots, player
   ('a0000000-0000-4000-8000-000000000001', 'c0000000-0000-4000-8000-000000000004', 5, 3, null, null, 'BIRDIE. Chaos.'),
   ('a0000000-0000-4000-8000-000000000001', 'c0000000-0000-4000-8000-000000000004', 6, 7, null, null, 'Found the water. Twice.');
 
+-- ============================================================
+-- Demo league at /league/demoleag — two finished league nights so
+-- season standings render with real numbers. The demo1234 event above
+-- stays casual (no league) so signed-out visitors can still score it.
+-- ============================================================
+
+delete from events where share_code in ('demolg01', 'demolg02');
+delete from leagues where share_code = 'demoleag';
+delete from auth.users where id in (
+  'e0000000-0000-4000-8000-000000000001', 'e0000000-0000-4000-8000-000000000002',
+  'e0000000-0000-4000-8000-000000000003', 'e0000000-0000-4000-8000-000000000004');
+
+-- Demo accounts (minimal auth.users rows — enough for FK + profiles)
+insert into auth.users (instance_id, id, aud, role, email, encrypted_password,
+                        email_confirmed_at, created_at, updated_at,
+                        raw_app_meta_data, raw_user_meta_data)
+select '00000000-0000-0000-0000-000000000000', id, 'authenticated', 'authenticated',
+       email, '', now(), now(), now(),
+       '{"provider": "email", "providers": ["email"]}'::jsonb, '{}'::jsonb
+from (values
+  ('e0000000-0000-4000-8000-000000000001'::uuid, 'dale@demo.hmb'),
+  ('e0000000-0000-4000-8000-000000000002'::uuid, 'sauce@demo.hmb'),
+  ('e0000000-0000-4000-8000-000000000003'::uuid, 'rick@demo.hmb'),
+  ('e0000000-0000-4000-8000-000000000004'::uuid, 'tommy@demo.hmb')
+) as u(id, email)
+on conflict (id) do nothing;
+
+insert into profiles (id, display_name, default_handicap) values
+  ('e0000000-0000-4000-8000-000000000001', 'Dale',              9),
+  ('e0000000-0000-4000-8000-000000000002', 'Sauce',            22),
+  ('e0000000-0000-4000-8000-000000000003', 'Big Rick',         12),
+  ('e0000000-0000-4000-8000-000000000004', 'Tommy Two-Putts',  18);
+
+insert into leagues (id, name, share_code, scoring_mode, placement_points) values
+  ('f0000000-0000-4000-8000-000000000001', 'The Thirsty Thursday League', 'demoleag',
+   'placement', '[10, 8, 6, 4, 2]'::jsonb);
+
+-- Dale runs the league AND plays in it (managers can be players)
+insert into league_managers (league_id, user_id) values
+  ('f0000000-0000-4000-8000-000000000001', 'e0000000-0000-4000-8000-000000000001');
+insert into league_members (league_id, user_id) values
+  ('f0000000-0000-4000-8000-000000000001', 'e0000000-0000-4000-8000-000000000001'),
+  ('f0000000-0000-4000-8000-000000000001', 'e0000000-0000-4000-8000-000000000002'),
+  ('f0000000-0000-4000-8000-000000000001', 'e0000000-0000-4000-8000-000000000003'),
+  ('f0000000-0000-4000-8000-000000000001', 'e0000000-0000-4000-8000-000000000004');
+
+insert into seasons (id, league_id, name, starts_on, status) values
+  ('f1000000-0000-4000-8000-000000000001', 'f0000000-0000-4000-8000-000000000001',
+   'Summer 2026', current_date - 21, 'active');
+
+insert into season_teams (id, season_id, name, player1_user_id, player2_user_id) values
+  ('f2000000-0000-4000-8000-000000000001', 'f1000000-0000-4000-8000-000000000001',
+   'The Mug Club', 'e0000000-0000-4000-8000-000000000001', 'e0000000-0000-4000-8000-000000000002'),
+  ('f2000000-0000-4000-8000-000000000002', 'f1000000-0000-4000-8000-000000000001',
+   'Foam Rangers', 'e0000000-0000-4000-8000-000000000003', 'e0000000-0000-4000-8000-000000000004');
+
+-- Two finished league nights at Sunny Pines
+insert into events (id, title, date, course, course_id, tee_name, tee_gender, holes, status,
+                    created_by, share_code, league_id, season_id) values
+  ('a0000000-0000-4000-8000-000000000002', 'League Night 1', current_date - 14,
+   'Sunny Pines Muni', (select id from courses where external_id = 999999), 'Lager', 'male',
+   9, 'final', 'Dale', 'demolg01',
+   'f0000000-0000-4000-8000-000000000001', 'f1000000-0000-4000-8000-000000000001'),
+  ('a0000000-0000-4000-8000-000000000003', 'League Night 2', current_date - 7,
+   'Sunny Pines Muni', (select id from courses where external_id = 999999), 'Lager', 'male',
+   9, 'final', 'Dale', 'demolg02',
+   'f0000000-0000-4000-8000-000000000001', 'f1000000-0000-4000-8000-000000000001');
+
+insert into event_admins (event_id, pin) values
+  ('a0000000-0000-4000-8000-000000000002', '1919'),
+  ('a0000000-0000-4000-8000-000000000003', '1919');
+
+-- Account-linked golfers per night (name/handicap snapshot from profiles)
+insert into golfers (id, name, handicap, event_id, user_id) values
+  ('b1000000-0000-4000-8000-000000000001', 'Dale',             9, 'a0000000-0000-4000-8000-000000000002', 'e0000000-0000-4000-8000-000000000001'),
+  ('b1000000-0000-4000-8000-000000000002', 'Sauce',           22, 'a0000000-0000-4000-8000-000000000002', 'e0000000-0000-4000-8000-000000000002'),
+  ('b1000000-0000-4000-8000-000000000003', 'Big Rick',        12, 'a0000000-0000-4000-8000-000000000002', 'e0000000-0000-4000-8000-000000000003'),
+  ('b1000000-0000-4000-8000-000000000004', 'Tommy Two-Putts', 18, 'a0000000-0000-4000-8000-000000000002', 'e0000000-0000-4000-8000-000000000004'),
+  ('b1000000-0000-4000-8000-000000000005', 'Dale',             9, 'a0000000-0000-4000-8000-000000000003', 'e0000000-0000-4000-8000-000000000001'),
+  ('b1000000-0000-4000-8000-000000000006', 'Sauce',           22, 'a0000000-0000-4000-8000-000000000003', 'e0000000-0000-4000-8000-000000000002'),
+  ('b1000000-0000-4000-8000-000000000007', 'Big Rick',        12, 'a0000000-0000-4000-8000-000000000003', 'e0000000-0000-4000-8000-000000000003'),
+  ('b1000000-0000-4000-8000-000000000008', 'Tommy Two-Putts', 18, 'a0000000-0000-4000-8000-000000000003', 'e0000000-0000-4000-8000-000000000004');
+
+-- Event teams tied back to their season team via season_team_id
+insert into teams (id, name, event_id, player1_id, player2_id, season_team_id) values
+  ('c1000000-0000-4000-8000-000000000001', 'The Mug Club', 'a0000000-0000-4000-8000-000000000002',
+   'b1000000-0000-4000-8000-000000000001', 'b1000000-0000-4000-8000-000000000002', 'f2000000-0000-4000-8000-000000000001'),
+  ('c1000000-0000-4000-8000-000000000002', 'Foam Rangers', 'a0000000-0000-4000-8000-000000000002',
+   'b1000000-0000-4000-8000-000000000003', 'b1000000-0000-4000-8000-000000000004', 'f2000000-0000-4000-8000-000000000002'),
+  ('c1000000-0000-4000-8000-000000000003', 'The Mug Club', 'a0000000-0000-4000-8000-000000000003',
+   'b1000000-0000-4000-8000-000000000005', 'b1000000-0000-4000-8000-000000000006', 'f2000000-0000-4000-8000-000000000001'),
+  ('c1000000-0000-4000-8000-000000000004', 'Foam Rangers', 'a0000000-0000-4000-8000-000000000003',
+   'b1000000-0000-4000-8000-000000000007', 'b1000000-0000-4000-8000-000000000008', 'f2000000-0000-4000-8000-000000000002');
+
+-- Night 1: Mug Club 37, Foam Rangers 40. Night 2: Mug Club 36, Foam Rangers 40.
+insert into scores (event_id, team_id, hole_number, score)
+select 'a0000000-0000-4000-8000-000000000002'::uuid, 'c1000000-0000-4000-8000-000000000001'::uuid, h, s
+from unnest(array[4,4,4,5,4,3,4,5,4]) with ordinality as t(s, h)
+union all
+select 'a0000000-0000-4000-8000-000000000002'::uuid, 'c1000000-0000-4000-8000-000000000002'::uuid, h, s
+from unnest(array[5,4,5,4,5,3,4,6,4]) with ordinality as t(s, h)
+union all
+select 'a0000000-0000-4000-8000-000000000003'::uuid, 'c1000000-0000-4000-8000-000000000003'::uuid, h, s
+from unnest(array[4,3,5,4,4,3,4,5,4]) with ordinality as t(s, h)
+union all
+select 'a0000000-0000-4000-8000-000000000003'::uuid, 'c1000000-0000-4000-8000-000000000004'::uuid, h, s
+from unnest(array[5,4,5,4,4,4,4,5,5]) with ordinality as t(s, h);
+
+insert into highlights (event_id, hole_number, team_id, caption, image_url) values
+  ('a0000000-0000-4000-8000-000000000003', 6, 'c1000000-0000-4000-8000-000000000003',
+   'Dale birdied 6 two weeks in a row. League under investigation.', null);
+
 -- The lore
 insert into highlights (event_id, hole_number, team_id, caption, image_url) values
   ('a0000000-0000-4000-8000-000000000001', 3, 'c0000000-0000-4000-8000-000000000002',

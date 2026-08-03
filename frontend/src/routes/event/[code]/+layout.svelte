@@ -80,6 +80,15 @@
 		<h1 class="font-display mt-2 text-3xl font-black text-white">{ev.title}</h1>
 		<p class="mt-1 flex flex-wrap items-center gap-2 text-sm text-stone-300">
 			<span class="rounded-full px-2.5 py-0.5 text-xs font-bold {badge.cls}">{badge.label}</span>
+			{#if eventStore.bundle.league}
+				<a
+					href={`/league/${eventStore.bundle.league.share_code}`}
+					class="tap bg-brew-500/20 text-brew-200 rounded-full px-2.5 py-0.5 text-xs font-bold"
+					title="View league standings"
+				>
+					🏆 {eventStore.bundle.league.name}
+				</a>
+			{/if}
 			{#if dirUrl}
 				<!-- Linked real course: tap for driving directions -->
 				<a

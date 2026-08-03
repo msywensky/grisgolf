@@ -1,0 +1,6 @@
+❯ I would like to expand the app to include league support.  Leagues are optional, so the existing functionality should work the the scramble is not part of a league.
+Give me ideas on what should be added.  My requirements:
+League mode requires user accounts for players and league managers
+League managers can also be players
+A manager can manage more than one league.
+
