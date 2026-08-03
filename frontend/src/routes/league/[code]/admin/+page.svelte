@@ -131,7 +131,7 @@
 	// --- Schedule a league night ---
 	let evTitle = $state('');
 	let evCourse = $state('');
-	let evExternalId = $state<number | null>(null);
+	let evExternalId = $state<string | null>(null);
 	let evTeeName = $state<string | null>(null);
 	let evTeeGender = $state<TeeGender | null>(null);
 	let evDate = $state(new Date().toISOString().slice(0, 10));

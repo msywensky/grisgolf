@@ -35,7 +35,7 @@ export interface TeeBox {
 /** A real course cached from GolfCourseAPI (courses table). */
 export interface Course {
 	id: string;
-	external_id: number;
+	external_id: string;
 	club_name: string;
 	course_name: string;
 	address: string | null;

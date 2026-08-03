@@ -72,7 +72,7 @@ alter table scores add column if not exists player2_shots int check (player2_sho
 -- repeat events at the same course never re-hit the rate-limited external API.
 create table if not exists courses (
   id uuid primary key default gen_random_uuid(),
-  external_id int not null unique,           -- GolfCourseAPI course id
+  external_id text not null unique,          -- GolfCourseAPI course id
   club_name text not null,
   course_name text not null,
   address text,

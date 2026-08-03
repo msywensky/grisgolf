@@ -9,12 +9,12 @@
 
 	let {
 		courseName = $bindable(''),
-		externalId = $bindable<number | null>(null),
+		externalId = $bindable<string | null>(null),
 		teeName = $bindable<string | null>(null),
 		teeGender = $bindable<TeeGender | null>(null)
 	}: {
 		courseName?: string;
-		externalId?: number | null;
+		externalId?: string | null;
 		teeName?: string | null;
 		teeGender?: TeeGender | null;
 	} = $props();

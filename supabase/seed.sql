@@ -8,10 +8,10 @@
 delete from events where share_code = 'demo1234';
 
 -- A "cached" real course so the demo shows pars + the directions link without
--- ever touching GolfCourseAPI. external_id 999999 won't collide with real ids.
+-- ever touching GolfCourseAPI. external_id '999999' won't collide with real (alphanumeric) ids.
 insert into courses (id, external_id, club_name, course_name, address, city, state, country, latitude, longitude, tees)
 values (
-  'd0000000-0000-4000-8000-000000000001', 999999,
+  'd0000000-0000-4000-8000-000000000001', '999999',
   'Sunny Pines Muni', 'Sunny Pines Muni',
   '1 Fairway Lane, Media, PA 19063, USA', 'Media', 'PA', 'United States',
   39.9168, -75.3876,
@@ -36,7 +36,7 @@ on conflict (external_id) do update set
 -- The event (dated today so it always looks fresh)
 insert into events (id, title, date, course, course_id, tee_name, tee_gender, holes, status, created_by, share_code) values
   ('a0000000-0000-4000-8000-000000000001', 'The Saturday Slice Open', current_date,
-   'Sunny Pines Muni', (select id from courses where external_id = 999999), 'Lager', 'male',
+   'Sunny Pines Muni', (select id from courses where external_id = '999999'), 'Lager', 'male',
    9, 'live', 'Commissioner Dale', 'demo1234');
 
 insert into event_admins (event_id, pin) values
@@ -160,11 +160,11 @@ insert into season_teams (id, season_id, name, player1_user_id, player2_user_id)
 insert into events (id, title, date, course, course_id, tee_name, tee_gender, holes, status,
                     created_by, share_code, league_id, season_id) values
   ('a0000000-0000-4000-8000-000000000002', 'League Night 1', current_date - 14,
-   'Sunny Pines Muni', (select id from courses where external_id = 999999), 'Lager', 'male',
+   'Sunny Pines Muni', (select id from courses where external_id = '999999'), 'Lager', 'male',
    9, 'final', 'Dale', 'demolg01',
    'f0000000-0000-4000-8000-000000000001', 'f1000000-0000-4000-8000-000000000001'),
   ('a0000000-0000-4000-8000-000000000003', 'League Night 2', current_date - 7,
-   'Sunny Pines Muni', (select id from courses where external_id = 999999), 'Lager', 'male',
+   'Sunny Pines Muni', (select id from courses where external_id = '999999'), 'Lager', 'male',
    9, 'final', 'Dale', 'demolg02',
    'f0000000-0000-4000-8000-000000000001', 'f1000000-0000-4000-8000-000000000001');
 
