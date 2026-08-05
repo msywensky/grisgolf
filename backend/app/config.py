@@ -20,6 +20,9 @@ class Settings:
         ]
         # Optional — course search degrades to cached-only without it.
         self.golf_api_key = os.environ.get("GOLF_COURSE_API_KEY", "")
+        # Optional — scorecard import is disabled without it.
+        self.anthropic_api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+        self.scorecard_model = os.environ.get("SCORECARD_MODEL", "claude-sonnet-5")
         if not self.supabase_url or not self.supabase_service_key:
             raise RuntimeError(
                 "Missing Supabase config. Copy backend/.env.example to backend/.env "

@@ -272,7 +272,7 @@ class CreateLeagueEvent(BaseModel):
     date: date
     holes: Literal[9, 18] = 18
     admin_pin: Optional[str] = Field(default=None, min_length=4, max_length=4)
-    external_course_id: Optional[int] = None
+    external_course_id: Optional[str] = None
     tee_name: Optional[str] = Field(default=None, max_length=60)
     tee_gender: Optional[Literal["male", "female"]] = None
 

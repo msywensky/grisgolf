@@ -12,13 +12,16 @@ import re
 from collections import OrderedDict
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
+from uuid import uuid4
 
 import httpx
-from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException, Query, Request
+from pydantic import BaseModel, Field, model_validator
 
+from ..ai import extract_scorecard
 from ..config import get_settings
 from ..db import get_db
+from ..ratelimit import rate_limit
 
 router = APIRouter(prefix="/api/courses", tags=["courses"])
 
@@ -26,6 +29,16 @@ GOLF_API_BASE = "https://api.golfcourseapi.com"
 API_TIMEOUT = 6.0
 CACHE_MAX_AGE = timedelta(days=90)
 MAX_RESULTS = 12
+
+# Scorecard imports: never refetched from GolfCourseAPI (there's nothing to
+# refetch — the row *is* the source of truth).
+CUSTOM_ID_PREFIX = "custom:"
+
+# ~5.4MB photo before base64 inflates it by 4/3 — plenty for a scorecard.
+MAX_IMAGE_B64_CHARS = 8_000_000
+
+SCORECARD_BUCKET = "scorecard"
+SCORECARD_BUDGET = 5  # scans + imports per hour per IP, combined
 
 # Recent external search results keyed by GolfCourseAPI id (newest last).
 _recent: OrderedDict[int, dict] = OrderedDict()
@@ -183,6 +196,8 @@ def ensure_cached(external_id: str) -> dict:
     db = get_db()
     res = db.table("courses").select("*").eq("external_id", external_id).maybe_single().execute()
     row = res.data if res else None
+    if row and external_id.startswith(CUSTOM_ID_PREFIX):
+        return row
     if row:
         fetched_at = _parse_ts(row.get("fetched_at") or "")
         if fetched_at and datetime.now(timezone.utc) - fetched_at < CACHE_MAX_AGE:
@@ -218,4 +233,127 @@ def ensure_cached(external_id: str) -> dict:
         )
         .execute()
         .data[0]
+    )
+
+
+# ---------- Scorecard import ----------
+#
+# Two endpoints, one paid: /scan reads the photo and returns nothing but the
+# extracted data (no DB write); /import persists the user-corrected result.
+# Both are unauthenticated and public (same trust posture as /search), so both
+# share one IP rate-limit bucket. Accepted risk: /import is a write to a
+# publicly-readable table — the rate limit + strict validation below is the
+# agreed mitigation; a scan-token handshake is the deferred next step if abuse
+# shows up in practice.
+
+
+class ScanRequest(BaseModel):
+    image_base64: str
+    media_type: str = "image/jpeg"
+
+
+class ScanHole(BaseModel):
+    number: int
+    par: int
+    handicap: Optional[int] = None
+
+
+class ScanResponse(BaseModel):
+    club_name: str
+    holes: list[ScanHole]
+
+
+@router.post("/scan")
+def scan_scorecard(body: ScanRequest, request: Request) -> ScanResponse:
+    """Read pars + stroke index off a scorecard photo. No DB write — the
+    result is reviewed and corrected by the user before /import persists it."""
+    rate_limit(request, budget=SCORECARD_BUDGET, bucket=SCORECARD_BUCKET)
+    if len(body.image_base64) > MAX_IMAGE_B64_CHARS:
+        raise HTTPException(
+            status_code=413,
+            detail="That photo's too big — try a tighter crop of just the scorecard. 🍺",
+        )
+
+    extracted = extract_scorecard(body.image_base64, body.media_type)
+    count = len(extracted.holes)
+    if count not in (9, 18):
+        raise HTTPException(
+            status_code=422,
+            detail=f"Found {count} holes, but scorecards need 9 or 18 — try cropping to just the holes row. 🍺",
+        )
+
+    # Hide wrong-looking values rather than show them as fact — the review
+    # screen flags a 0 par / blank handicap for the organizer to fill in.
+    holes = [
+        ScanHole(
+            number=h.number,
+            par=h.par if 3 <= h.par <= 6 else 0,
+            handicap=h.handicap if h.handicap is not None and 1 <= h.handicap <= count else None,
+        )
+        for h in extracted.holes
+    ]
+    return ScanResponse(club_name=extracted.club_name, holes=holes)
+
+
+class ImportHole(BaseModel):
+    par: int = Field(ge=3, le=6)
+    handicap: Optional[int] = None
+
+
+class ImportCourse(BaseModel):
+    club_name: str = Field(min_length=1, max_length=120)
+    course_name: str = Field(default="", max_length=120)
+    address: str = Field(default="", max_length=200)
+    city: str = Field(default="", max_length=80)
+    state: str = Field(min_length=2, max_length=2)
+    holes: list[ImportHole]
+
+    @model_validator(mode="after")
+    def _check_holes(self) -> "ImportCourse":
+        count = len(self.holes)
+        if count not in (9, 18):
+            raise ValueError("Need 9 or 18 holes.")
+        if any(h.handicap is not None and not (1 <= h.handicap <= count) for h in self.holes):
+            raise ValueError("Handicap must be between 1 and the number of holes.")
+        return self
+
+
+@router.post("/import")
+def import_course(body: ImportCourse, request: Request) -> CourseSummary:
+    """Persist a scorecard-derived course as an ordinary `courses` row, so it
+    behaves identically to a GolfCourseAPI course everywhere downstream."""
+    rate_limit(request, budget=SCORECARD_BUDGET, bucket=SCORECARD_BUCKET)
+    state = body.state.upper()
+
+    tee = {
+        "tee_name": "Scorecard",
+        "course_rating": 0,
+        "slope_rating": 0,
+        "total_yards": 0,
+        "par_total": sum(h.par for h in body.holes),
+        "number_of_holes": len(body.holes),
+        "holes": [{"par": h.par, "yardage": 0, "handicap": h.handicap} for h in body.holes],
+    }
+
+    row = (
+        get_db()
+        .table("courses")
+        .insert(
+            {
+                "external_id": f"{CUSTOM_ID_PREFIX}{uuid4()}",
+                "club_name": body.club_name,
+                "course_name": body.course_name or body.club_name,
+                "address": body.address or None,
+                "city": body.city or None,
+                "state": state,
+                "country": "United States",
+                "tees": {"male": [tee]},
+                "fetched_at": datetime.now(timezone.utc).isoformat(),
+            }
+        )
+        .execute()
+        .data[0]
+    )
+    return _summary(
+        row["external_id"], row["club_name"], row["course_name"], row.get("city"), row.get("state"), row.get("tees")
     )

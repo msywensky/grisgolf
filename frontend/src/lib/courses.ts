@@ -2,6 +2,14 @@
 import type { Course, TeeBox, TeeGender } from './types';
 import type { CourseResult } from './api';
 
+/** Synthetic external_id prefix for courses imported from a scorecard photo
+ * (as opposed to a real GolfCourseAPI id). Never refetched externally. */
+export const CUSTOM_ID_PREFIX = 'custom:';
+
+export function isImportedCourse(c: { external_id: string }): boolean {
+	return c.external_id.startsWith(CUSTOM_ID_PREFIX);
+}
+
 /** Same display rule the backend uses: 'Club' or 'Club — Course No. 2'. */
 export function courseDisplayName(c: { club_name: string; course_name: string }): string {
 	const club = c.club_name.trim();
