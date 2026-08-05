@@ -227,3 +227,38 @@ export function searchCourses(
 ): Promise<{ results: CourseResult[]; degraded: boolean }> {
 	return request(`/api/courses/search?q=${encodeURIComponent(q)}&state=${encodeURIComponent(state)}`);
 }
+
+// ---------- Scorecard import ----------
+
+export interface ScanHole {
+	number: number;
+	par: number;
+	handicap: number | null;
+}
+
+export interface ScanResult {
+	club_name: string;
+	holes: ScanHole[];
+}
+
+/** Reads pars + stroke index off a scorecard photo. No DB write. */
+export function scanScorecard(imageBase64: string, mediaType: string): Promise<ScanResult> {
+	return request('/api/courses/scan', {
+		method: 'POST',
+		body: JSON.stringify({ image_base64: imageBase64, media_type: mediaType })
+	});
+}
+
+export interface ImportCourseInput {
+	club_name: string;
+	course_name?: string;
+	address?: string;
+	city?: string;
+	state: string;
+	holes: { par: number; handicap: number | null }[];
+}
+
+/** Persists a scorecard-derived course as a real, searchable `courses` row. */
+export function importCourse(input: ImportCourseInput): Promise<CourseResult> {
+	return request('/api/courses/import', { method: 'POST', body: JSON.stringify(input) });
+}

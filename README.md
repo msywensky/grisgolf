@@ -63,6 +63,14 @@ search on the create-event and admin pages (free key from
 Without it, organizers can still type a course name by hand, and any courses
 already cached in the `courses` table remain searchable.
 
+Optional: set `ANTHROPIC_API_KEY` in `backend/.env` to enable "Import a
+scorecard photo" in the course picker — organizers photograph a paper
+scorecard and a Claude vision model reads the per-hole pars and stroke index,
+editable before saving. `SCORECARD_MODEL` (default `claude-sonnet-5`) picks
+the model; it must be vision-capable and support structured outputs. Without
+the key, that entry point degrades to a clear message and organizers can
+still search or type a course name by hand.
+
 ### 3. Frontend (SvelteKit)
 
 ```bash
@@ -129,6 +137,9 @@ printf 'your-secret-key-value' | gcloud secrets create supabase-service-role-key
 
 # Optional: the GolfCourseAPI key for real-course search
 printf 'your-golf-api-key' | gcloud secrets create golf-course-api-key --data-file=-
+
+# Optional: the Anthropic key for scorecard-photo import
+printf 'your-anthropic-key' | gcloud secrets create anthropic-api-key --data-file=-
 ```
 
 Build and deploy from the repo root:
@@ -138,12 +149,13 @@ gcloud run deploy hmb-scramble-api \
   --source backend \
   --region us-central1 \
   --allow-unauthenticated \
-  --set-env-vars SUPABASE_URL=https://YOUR-PROJECT.supabase.co,CORS_ORIGINS=https://scramble.hmbgolf.com \
-  --set-secrets SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest,GOLF_COURSE_API_KEY=golf-course-api-key:latest
+  --set-env-vars SUPABASE_URL=https://YOUR-PROJECT.supabase.co,CORS_ORIGINS=https://scramble.hmbgolf.com,SCORECARD_MODEL=claude-sonnet-5 \
+  --set-secrets SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest,GOLF_COURSE_API_KEY=golf-course-api-key:latest,ANTHROPIC_API_KEY=anthropic-api-key:latest
 ```
 
 (Drop the `GOLF_COURSE_API_KEY` secret from `--set-secrets` if you're skipping
-real-course search.)
+real-course search, and drop `ANTHROPIC_API_KEY` + `SCORECARD_MODEL` if you're
+skipping scorecard-photo import.)
 
 This gives you a `https://hmb-scramble-api-xxxxxxxxxx-uc.a.run.app` URL — test it
 with `curl <url>/` (expect `{"status":"ok","vibe":"🍺⛳ hold my beer"}`), then set

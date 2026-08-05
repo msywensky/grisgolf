@@ -3,8 +3,9 @@
 	// always visible — the crew crosses the PA/NJ line), with a free-text escape
 	// hatch so an unlisted course never blocks creating the event.
 	import { searchCourses, type CourseResult } from '$lib/api';
-	import { courseDisplayName, teeOptions, US_STATES } from '$lib/courses';
+	import { courseDisplayName, isImportedCourse, teeOptions, US_STATES } from '$lib/courses';
 	import { getPrefState, setPrefState } from '$lib/session';
+	import ScorecardImport from './ScorecardImport.svelte';
 	import type { TeeGender } from '$lib/types';
 
 	let {
@@ -19,7 +20,7 @@
 		teeGender?: TeeGender | null;
 	} = $props();
 
-	let mode = $state<'search' | 'text'>('search');
+	let mode = $state<'search' | 'text' | 'import'>('search');
 	let query = $state('');
 	let usState = $state(getPrefState() ?? 'PA');
 	let results = $state<CourseResult[]>([]);
@@ -86,6 +87,18 @@
 		clearCourse();
 	}
 
+	function useImport() {
+		mode = 'import';
+		clearCourse();
+	}
+
+	function onImported(result: CourseResult) {
+		pickCourse(result);
+		teeName = 'Scorecard';
+		teeGender = 'male';
+		mode = 'search';
+	}
+
 	function pickTee(name: string | null, gender: TeeGender | null) {
 		teeName = name;
 		teeGender = gender;
@@ -104,6 +117,8 @@
 		<button type="button" class="tap text-xs font-semibold text-stone-500 underline" onclick={() => (mode = 'search')}>
 			🔍 Search real courses instead
 		</button>
+	{:else if mode === 'import'}
+		<ScorecardImport onimported={onImported} oncancel={() => (mode = 'search')} />
 	{:else if selected}
 		<!-- Picked course summary -->
 		<div class="rounded-xl border border-fairway-600/50 bg-fairway-900/30 px-4 py-3">
@@ -120,7 +135,7 @@
 			</div>
 		</div>
 
-		{#if tees.length > 0}
+		{#if tees.length > 0 && !isImportedCourse(selected)}
 			<span class="block pt-1">Tee box</span>
 			<div class="space-y-1.5">
 				{#each tees as opt (`${opt.gender}:${opt.tee.tee_name}`)}
@@ -194,8 +209,13 @@
 					: `No ${usState} courses match — try fewer words, or another state.`}
 			</p>
 		{/if}
-		<button type="button" class="tap text-xs font-semibold text-stone-500 underline" onclick={useFreeText}>
-			Can't find it? Just type the name
-		</button>
+		<div class="flex flex-wrap gap-x-4 gap-y-1">
+			<button type="button" class="tap text-xs font-semibold text-stone-500 underline" onclick={useFreeText}>
+				Can't find it? Just type the name
+			</button>
+			<button type="button" class="tap text-xs font-semibold text-stone-500 underline" onclick={useImport}>
+				📸 Import a scorecard photo
+			</button>
+		</div>
 	{/if}
 </div>
