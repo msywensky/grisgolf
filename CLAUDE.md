@@ -94,7 +94,7 @@ bake time — which is why CI can build it with no secrets configured.
 ## Gotchas
 
 - **`eventStore.refresh()` after any write that the current page cares about seeing immediately.** Realtime + 20s polling is the default sync mechanism, but a backgrounded tab (e.g. camera capture via `<input capture="environment">` in `HighlightComposer.svelte`) can stall both for a long time. Don't rely solely on realtime for UI that just performed the write.
-- **`adapter-vercel` is pinned explicitly** in `frontend/svelte.config.js` (`runtime: 'nodejs20.x'`) with matching `"engines": {"node": "20.x"}` in `package.json`. Don't switch back to `adapter-auto` — its bundled adapter-vercel version lags Vercel's build container Node version and fails the build.
+- **`adapter-vercel` is pinned explicitly** in `frontend/svelte.config.js` (`runtime: 'nodejs24.x'`) with matching `"engines": {"node": "24.x"}` in `package.json`. Don't switch back to `adapter-auto` — its bundled adapter-vercel version lags Vercel's build container Node version and fails the build.
 - **`CORS_ORIGINS` on the backend must exactly match the frontend origin** (scheme + host, no trailing slash) — a mismatch fails silently as a browser CORS error, not a server error.
 - **Secrets discipline:** never print/echo Supabase service-role or publishable keys to the terminal. Read from `.env` with `grep | cut` and pipe directly into commands (e.g. `gcloud secrets create --data-file=-`).
 - **Branch protection is on `main`:** PRs required (0 approvals needed, solo-contributor repo), `enforce_admins: true`, and the `Frontend build` / `Backend build` CI checks (`.github/workflows/ci.yml`) are required status checks. Don't push directly to `main`.
