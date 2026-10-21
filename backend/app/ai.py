@@ -20,6 +20,7 @@ printed), one entry per hole, in hole-number order.
 
 Rules:
 - Return exactly one entry per hole shown on the card (usually 9 or 18).
+- Ignore summary columns (e.g., "Out", "In", "Total") and any other text on the card.
 - If the club or course name is printed on the card, put your best guess in \
 club_name; if it isn't legible or isn't printed, return an empty string. Do \
 not guess.

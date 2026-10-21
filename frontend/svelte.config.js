@@ -7,7 +7,7 @@ const config = {
 	kit: {
 		// Pinned explicitly: adapter-auto's bundled version lags behind
 		// Vercel's build Node version and fails with "unsupported Node.js version".
-		adapter: adapter({ runtime: 'nodejs20.x' })
+		adapter: adapter({ runtime: 'nodejs24.x' })
 	}
 };
 
